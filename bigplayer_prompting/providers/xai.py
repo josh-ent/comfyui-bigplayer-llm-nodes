@@ -81,7 +81,8 @@ class XAIProvider:
         context: InvocationContext | None = None,
     ) -> dict[str, Any]:
         request = self.render_operation(operation, config)
-        base_url = (config.provider_base_url or XAI_PROVIDER_BASE_URL).rstrip("/")
+        override_base_url = config.provider_base_url.strip()
+        base_url = (override_base_url or XAI_PROVIDER_BASE_URL).rstrip("/")
         headers = {
             "Authorization": f"Bearer {config.api_key}",
             "Content-Type": "application/json",
@@ -110,6 +111,10 @@ class XAIProvider:
             raise ProviderError(
                 f"xAI provider returned HTTP {exc.response.status_code}. "
                 f"Body: {message.replace(config.api_key, redact_secret(config.api_key))}"
+            ) from exc
+        except httpx.UnsupportedProtocol as exc:
+            raise ProviderError(
+                f"Invalid xAI provider base URL `{base_url}`. Expected an http:// or https:// URL."
             ) from exc
         except httpx.HTTPError as exc:
             raise ProviderError("Failed to call the xAI provider.") from exc

@@ -59,6 +59,11 @@ class FakeStreamResponse:
         assert self._json_body is not None
         return self._json_body
 
+    def read(self) -> bytes:
+        if self._json_body is None:
+            return b""
+        return json.dumps(self._json_body).encode("utf-8")
+
     def iter_lines(self):
         for line in self._lines:
             yield line
@@ -181,6 +186,31 @@ def test_xai_provider_reports_timeout_as_idle_timeout(monkeypatch):
     with pytest.raises(ProviderError) as exc:
         XAIProvider().invoke(_operation(), _config())
     assert "stopped sending data" in str(exc.value)
+
+
+def test_xai_provider_strips_whitespace_base_url_override(monkeypatch):
+    captured_urls: list[str] = []
+    response = FakeStreamResponse(
+        json_body={"output_text": json.dumps({"value": "ok"})},
+        headers={"content-type": "application/json"},
+    )
+
+    def fake_stream(self, method, url, **kwargs):
+        captured_urls.append(url)
+        return nullcontext(response)
+
+    monkeypatch.setattr(httpx.Client, "stream", fake_stream)
+    payload = XAIProvider().invoke(
+        _operation(),
+        ProviderConfig(
+            provider="xAI",
+            provider_model="grok-4-latest",
+            api_key="secret-key",
+            provider_base_url="   ",
+        ),
+    )
+    assert payload == {"value": "ok"}
+    assert captured_urls == ["https://api.x.ai/v1/responses"]
 
 
 def test_xai_provider_rejects_unknown_operation():

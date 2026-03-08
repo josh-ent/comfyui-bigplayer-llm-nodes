@@ -92,7 +92,14 @@ def comfy_server():
             try:
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/object_info", timeout=2) as response:
                     payload = json.loads(response.read())
-                    if "BigPlayerPromptSimple" in payload and "BigPlayerPromptSplit" in payload:
+                    required_nodes = {
+                        "BigPlayerPromptSimple",
+                        "BigPlayerPromptSplit",
+                        "BigPlayerTestModel",
+                        "BigPlayerTestSink",
+                        "BigPlayerTestSplitSink",
+                    }
+                    if required_nodes.issubset(payload):
                         started = True
                         break
             except Exception:
