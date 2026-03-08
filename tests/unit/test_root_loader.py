@@ -20,6 +20,7 @@ def test_root_loader_supports_comfyui_style_import():
         spec.loader.exec_module(module)
         assert "BigPlayerPromptSimple" in module.NODE_CLASS_MAPPINGS
         assert "BigPlayerPromptSplit" in module.NODE_CLASS_MAPPINGS
+        assert module.WEB_DIRECTORY == "web"
         print("ok")
         """
     )

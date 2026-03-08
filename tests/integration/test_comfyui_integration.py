@@ -193,6 +193,36 @@ def build_split_workflow(provider_base_url: str) -> dict:
     }
 
 
+def build_no_provider_simple_workflow(provider_model: str, prose: str) -> dict:
+    return {
+        "1": {
+            "class_type": "BigPlayerTestModel",
+            "inputs": {"model_name": "sdxl-base-1.0.safetensors"},
+        },
+        "2": {
+            "class_type": "BigPlayerPromptSimple",
+            "inputs": {
+                "prose": prose,
+                "api_key": "",
+                "provider": "No Provider",
+                "provider_model": provider_model,
+                "target_model": ["1", 0],
+                "style_policy": "",
+                "provider_base_url": "",
+                "assume_determinism": True,
+            },
+        },
+        "3": {
+            "class_type": "BigPlayerTestSink",
+            "inputs": {
+                "value_1": ["2", 0],
+                "value_2": ["2", 1],
+                "value_3": ["2", 2],
+            },
+        },
+    }
+
+
 def test_simple_and_split_nodes_execute_in_comfyui():
     def responder(body):
         user_text = body["input"][1]["content"][0]["text"]
@@ -260,3 +290,26 @@ def test_comfyui_surface_schema_failures():
             assert history["status"]["status_str"] == "error"
             error_message = history["status"]["messages"][-1][1]["exception_message"]
             assert "schema validation" in error_message
+
+
+def test_no_provider_executes_locally_without_network():
+    with comfy_server() as port:
+        positive_id = queue_prompt(
+            port,
+            build_no_provider_simple_workflow("Positive", "bright red apple"),
+        )
+        positive_history = wait_for_history(port, positive_id)
+        positive_output = positive_history["outputs"]["3"]
+        assert positive_output["value_1"][0] == "bright red apple"
+        assert positive_output["value_2"][0] == ""
+        assert positive_output["value_3"][0] == "Goes nowhere, does nothing"
+
+        negative_id = queue_prompt(
+            port,
+            build_no_provider_simple_workflow("Negative", "washed out"),
+        )
+        negative_history = wait_for_history(port, negative_id)
+        negative_output = negative_history["outputs"]["3"]
+        assert negative_output["value_1"][0] == ""
+        assert negative_output["value_2"][0] == "washed out"
+        assert negative_output["value_3"][0] == "Goes nowhere, does nothing"

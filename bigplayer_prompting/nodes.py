@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .provider import REGISTERED_PROVIDERS, list_models, list_provider_ids
+from .provider import REGISTERED_PROVIDERS, list_models, list_provider_ids, provider_model_map
 from .errors import BigPlayerError
 from .service import PromptGenerationRequest, PromptGenerationService
 
@@ -11,10 +11,10 @@ _SERVICE = PromptGenerationService()
 def _validate_common_text_inputs(prose: str, api_key: str, provider: str, provider_model: str) -> bool | str:
     if prose is None or not prose.strip():
         return "The prose input cannot be empty."
-    if api_key is None or not api_key.strip():
-        return "The api_key input cannot be empty."
     if provider not in REGISTERED_PROVIDERS:
         return f"Unsupported provider: {provider}"
+    if REGISTERED_PROVIDERS[provider].requires_api_key and (api_key is None or not api_key.strip()):
+        return "The api_key input cannot be empty."
     if provider_model not in REGISTERED_PROVIDERS[provider].models:
         return f"Unsupported model `{provider_model}` for provider `{provider}`."
     return True
@@ -58,6 +58,7 @@ class _BasePromptNode:
                     {
                         "default": list_models()[0],
                         "tooltip": "Registered provider model to call.",
+                        "provider_models": provider_model_map(),
                     },
                 ),
                 "target_model": (

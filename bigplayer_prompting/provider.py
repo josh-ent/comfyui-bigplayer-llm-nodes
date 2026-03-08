@@ -16,6 +16,7 @@ class ProviderDefinition:
     models: tuple[str, ...]
     default_base_url: str
     factory: Callable[[], "OperationProvider"]
+    requires_api_key: bool = True
 
 @dataclass(frozen=True)
 class ProviderConfig:
@@ -30,7 +31,16 @@ class OperationProvider(Protocol):
         ...
 
 
-from .providers import XAIProvider, XAI_MODELS, XAI_PROVIDER_BASE_URL, XAI_PROVIDER_ID
+from .providers import (
+    NO_PROVIDER_BASE_URL,
+    NO_PROVIDER_ID,
+    NO_PROVIDER_MODELS,
+    NoProvider,
+    XAIProvider,
+    XAI_MODELS,
+    XAI_PROVIDER_BASE_URL,
+    XAI_PROVIDER_ID,
+)
 
 
 REGISTERED_PROVIDERS: dict[str, ProviderDefinition] = {
@@ -39,6 +49,13 @@ REGISTERED_PROVIDERS: dict[str, ProviderDefinition] = {
         models=XAI_MODELS,
         default_base_url=XAI_PROVIDER_BASE_URL,
         factory=XAIProvider,
+    ),
+    NO_PROVIDER_ID: ProviderDefinition(
+        provider_id=NO_PROVIDER_ID,
+        models=NO_PROVIDER_MODELS,
+        default_base_url=NO_PROVIDER_BASE_URL,
+        factory=NoProvider,
+        requires_api_key=False,
     ),
 }
 
@@ -55,3 +72,7 @@ def list_models(provider_id: str | None = None) -> list[str]:
     for provider in REGISTERED_PROVIDERS.values():
         all_models.extend(provider.models)
     return all_models
+
+
+def provider_model_map() -> dict[str, list[str]]:
+    return {provider_id: list(definition.models) for provider_id, definition in REGISTERED_PROVIDERS.items()}

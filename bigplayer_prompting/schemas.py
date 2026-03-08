@@ -21,14 +21,14 @@ class _BaseSchema(BaseModel):
 
 
 class SimplePromptResult(_BaseSchema):
-    positive_prompt: str = Field(min_length=1)
+    positive_prompt: str
     negative_prompt: str
     comments: str = Field(min_length=1)
 
 
 class SplitPromptResult(_BaseSchema):
-    text_l_positive: str = Field(min_length=1)
-    text_g_positive: str = Field(min_length=1)
+    text_l_positive: str
+    text_g_positive: str
     text_l_negative: str
     text_g_negative: str
     comments: str = Field(min_length=1)
@@ -73,4 +73,3 @@ def validate_result(mode: PromptMode, payload: dict[str, Any]) -> SimplePromptRe
         return SplitPromptResult.model_validate(payload)
     except ValidationError as exc:
         raise MalformedProviderResponseError(f"Provider response failed schema validation: {exc}") from exc
-
