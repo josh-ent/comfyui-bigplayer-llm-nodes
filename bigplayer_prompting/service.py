@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from .cache import CacheKey, DeterministicCache, stable_hash
+from .errors import ProviderError
 from .model_name import extract_model_name
-from .prompts import SYSTEM_PROMPT, build_user_prompt
-from .provider import REGISTERED_PROVIDERS, ProviderRequest, redact_secret
+from .operations import PromptGenerationOperation
+from .provider import ProviderConfig, REGISTERED_PROVIDERS, redact_secret
 from .schemas import PromptMode, get_provider_schema, validate_result
 
 SCHEMA_VERSION = "phase1-v2"
@@ -33,6 +34,14 @@ class PromptGenerationService:
         }
 
     def generate(self, request: PromptGenerationRequest):
+        provider_definition = REGISTERED_PROVIDERS.get(request.provider)
+        if provider_definition is None:
+            raise ProviderError(f"Unsupported provider `{request.provider}`.")
+        if request.provider_model not in provider_definition.models:
+            raise ProviderError(
+                f"Provider `{request.provider}` does not support model `{request.provider_model}`."
+            )
+
         model_name = extract_model_name(request.target_model)
         cache_key = self._build_cache_key(request, model_name)
         if request.assume_determinism:
@@ -40,22 +49,22 @@ class PromptGenerationService:
             if cached is not None:
                 return cached
 
-        user_prompt = build_user_prompt(
+        operation = PromptGenerationOperation(
             prose=request.prose,
-            model_name=model_name,
+            target_model_name=model_name,
             style_policy=request.style_policy,
-            mode=request.mode,
+            output_mode=request.mode,
+            response_schema_name=f"bigplayer_{request.mode}_prompt_result",
+            response_schema=get_provider_schema(request.mode),
         )
-        payload = self._providers[request.provider].generate_structured(
-            ProviderRequest(
-                api_key=request.api_key,
+        payload = self._providers[request.provider].invoke(
+            operation,
+            ProviderConfig(
+                provider=request.provider,
                 provider_model=request.provider_model,
-                system_prompt=SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                schema_name=f"bigplayer_{request.mode}_prompt_result",
-                schema=get_provider_schema(request.mode),
-                provider_base_url=request.provider_base_url or None,
-            )
+                api_key=request.api_key,
+                provider_base_url=request.provider_base_url,
+            ),
         )
         result = validate_result(request.mode, payload)
         result = self._annotate_split_fallback(result, request.mode)

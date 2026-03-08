@@ -13,3 +13,6 @@ class ProviderError(BigPlayerError):
 class MalformedProviderResponseError(ProviderError):
     """Raised when the provider returns data that cannot be parsed or validated."""
 
+
+class UnsupportedOperationError(ProviderError):
+    """Raised when a provider cannot execute the requested operation."""
