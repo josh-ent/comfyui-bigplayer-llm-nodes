@@ -4,10 +4,11 @@ import os
 
 import pytest
 
+from bigplayer_prompting.capabilities import BASIC_PROMPT_CAPABILITY
 from bigplayer_prompting.operations import PromptGenerationOperation
 from bigplayer_prompting.provider import ProviderConfig
-from bigplayer_prompting.schemas import get_provider_schema, validate_result
 from bigplayer_prompting.providers.xai import XAIProvider
+from bigplayer_prompting.schemas import get_provider_schema, validate_result
 
 
 pytestmark = pytest.mark.live
@@ -19,14 +20,18 @@ pytestmark = pytest.mark.live
 )
 def test_live_provider_accepts_structured_output():
     provider = XAIProvider()
+    capability_configs = {BASIC_PROMPT_CAPABILITY: {}}
     result = provider.invoke(
         PromptGenerationOperation(
             prose="A cinematic portrait of a cat sitting on a velvet chair.",
-            target_model_name="sdxl-base-1.0.safetensors",
-            style_policy="",
-            output_mode="simple",
+            context_blocks=(),
+            capability_instructions=(
+                "Capability `basic_prompt`:\n- Return `positive_prompt`, `negative_prompt`, and `comments`.",
+            ),
+            requested_capabilities=(BASIC_PROMPT_CAPABILITY,),
+            capability_configs=capability_configs,
             response_schema_name="bigplayer_live_smoke",
-            response_schema=get_provider_schema("simple"),
+            response_schema=get_provider_schema(capability_configs),
         ),
         ProviderConfig(
             provider="xAI",
@@ -35,5 +40,5 @@ def test_live_provider_accepts_structured_output():
             provider_base_url=os.environ.get("BIGPLAYER_GROK_BASE_URL", ""),
         ),
     )
-    validated = validate_result("simple", result)
-    assert validated.positive_prompt
+    validated = validate_result(capability_configs, result)
+    assert validated["basic_prompt"]["positive_prompt"]

@@ -7,6 +7,7 @@ import httpx
 import pytest
 import respx
 
+from bigplayer_prompting.capabilities import BASIC_PROMPT_CAPABILITY
 from bigplayer_prompting.errors import MalformedProviderResponseError, ProviderError, UnsupportedOperationError
 from bigplayer_prompting.operations import PromptGenerationOperation
 from bigplayer_prompting.provider import InvocationContext, ProviderConfig
@@ -25,11 +26,24 @@ def _config(provider_model: str = "grok-4-latest") -> ProviderConfig:
 def _operation() -> PromptGenerationOperation:
     return PromptGenerationOperation(
         prose="A cat on a windowsill.",
-        target_model_name="sdxl-base-1.0.safetensors",
-        style_policy="Keep it practical.",
-        output_mode="simple",
+        context_blocks=(("Additional model context", "A photoreal SDXL workflow."),),
+        capability_instructions=(
+            "Capability `basic_prompt`:\n- Return `positive_prompt`, `negative_prompt`, and `comments`.",
+        ),
+        requested_capabilities=(BASIC_PROMPT_CAPABILITY,),
+        capability_configs={BASIC_PROMPT_CAPABILITY: {}},
         response_schema_name="test_schema",
-        response_schema={"type": "object", "properties": {"value": {"type": "string"}}, "required": ["value"]},
+        response_schema={
+            "type": "object",
+            "properties": {
+                "basic_prompt": {
+                    "type": "object",
+                    "properties": {"positive_prompt": {"type": "string"}},
+                    "required": ["positive_prompt"],
+                }
+            },
+            "required": ["basic_prompt"],
+        },
     )
 
 
@@ -69,12 +83,13 @@ class FakeStreamResponse:
             yield line
 
 
-def test_xai_provider_renders_prompt_generation_operation():
+def test_xai_provider_renders_generic_prompt_generation_operation():
     rendered = XAIProvider().render_operation(_operation(), _config())
     assert rendered.model == "grok-4-latest"
-    assert "production-ready ComfyUI prompts" in rendered.system_prompt
+    assert "production-ready ComfyUI workflow data" in rendered.system_prompt
     assert "A cat on a windowsill." in rendered.user_prompt
-    assert "sdxl-base-1.0.safetensors" in rendered.user_prompt
+    assert "A photoreal SDXL workflow." in rendered.user_prompt
+    assert "basic_prompt" in rendered.user_prompt
     payload = rendered.as_payload()
     assert payload["tools"] == [{"type": "web_search"}]
     assert payload["text"]["format"]["strict"] is True
@@ -92,7 +107,7 @@ def test_xai_provider_posts_streaming_responses_request_and_accepts_json_fallbac
                         "content": [
                             {
                                 "type": "output_text",
-                                "text": json.dumps({"value": "ok"}),
+                                "text": json.dumps({"basic_prompt": {"positive_prompt": "ok"}}),
                             }
                         ]
                     }
@@ -103,7 +118,7 @@ def test_xai_provider_posts_streaming_responses_request_and_accepts_json_fallbac
     )
     provider = XAIProvider()
     payload = provider.invoke(_operation(), _config())
-    assert payload == {"value": "ok"}
+    assert payload == {"basic_prompt": {"positive_prompt": "ok"}}
     sent = route.calls[0].request.read().decode("utf-8")
     assert '"tools":[{"type":"web_search"}]' in sent
     assert '"stream":true' in sent
@@ -115,10 +130,10 @@ def test_xai_provider_accumulates_sse_output_and_reports_status(monkeypatch):
         headers={"content-type": "text/event-stream"},
         lines=[
             'event: response.output_text.delta',
-            'data: {"type":"response.output_text.delta","delta":"{\\"value\\": "}',
+            'data: {"type":"response.output_text.delta","delta":"{\\"basic_prompt\\": "}',
             "",
             'event: response.output_text.delta',
-            'data: {"type":"response.output_text.delta","delta":"\\"ok\\"}"}',
+            'data: {"type":"response.output_text.delta","delta":"{\\"positive_prompt\\": \\"ok\\"}}"}',
             "",
             "data: [DONE]",
             "",
@@ -132,7 +147,7 @@ def test_xai_provider_accumulates_sse_output_and_reports_status(monkeypatch):
         _config(),
         InvocationContext(status_callback=statuses.append),
     )
-    assert payload == {"value": "ok"}
+    assert payload == {"basic_prompt": {"positive_prompt": "ok"}}
     assert any("Connecting to xAI" in status for status in statuses)
     assert any("Receiving structured output from xAI" in status for status in statuses)
 
@@ -142,7 +157,7 @@ def test_xai_provider_prefers_completed_response_object_from_stream(monkeypatch)
         headers={"content-type": "text/event-stream"},
         lines=[
             'event: response.completed',
-            'data: {"type":"response.completed","response":{"output_text":"{\\"value\\": \\"ok\\"}"}}',
+            'data: {"type":"response.completed","response":{"output_text":"{\\"basic_prompt\\": {\\"positive_prompt\\": \\"ok\\"}}"}}',
             "",
             "data: [DONE]",
             "",
@@ -150,7 +165,7 @@ def test_xai_provider_prefers_completed_response_object_from_stream(monkeypatch)
     )
     monkeypatch.setattr(httpx.Client, "stream", lambda self, *args, **kwargs: nullcontext(response))
     payload = XAIProvider().invoke(_operation(), _config())
-    assert payload == {"value": "ok"}
+    assert payload == {"basic_prompt": {"positive_prompt": "ok"}}
 
 
 def test_xai_provider_raises_for_non_json_output(monkeypatch):
@@ -191,7 +206,7 @@ def test_xai_provider_reports_timeout_as_idle_timeout(monkeypatch):
 def test_xai_provider_strips_whitespace_base_url_override(monkeypatch):
     captured_urls: list[str] = []
     response = FakeStreamResponse(
-        json_body={"output_text": json.dumps({"value": "ok"})},
+        json_body={"output_text": json.dumps({"basic_prompt": {"positive_prompt": "ok"}})},
         headers={"content-type": "application/json"},
     )
 
@@ -209,7 +224,7 @@ def test_xai_provider_strips_whitespace_base_url_override(monkeypatch):
             provider_base_url="   ",
         ),
     )
-    assert payload == {"value": "ok"}
+    assert payload == {"basic_prompt": {"positive_prompt": "ok"}}
     assert captured_urls == ["https://api.x.ai/v1/responses"]
 
 

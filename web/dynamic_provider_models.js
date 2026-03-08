@@ -1,6 +1,6 @@
 import { app } from "../../scripts/app.js";
 
-const TARGET_NODES = new Set(["BigPlayerPromptSimple", "BigPlayerPromptSplit"]);
+const TARGET_NODES = new Set(["BigPlayerLLMProvider"]);
 
 function getWidget(node, name) {
   return node.widgets?.find((widget) => widget.name === name) ?? null;

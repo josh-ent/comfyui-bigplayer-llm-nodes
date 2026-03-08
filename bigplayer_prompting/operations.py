@@ -4,8 +4,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from .schemas import PromptMode
-
 
 class OperationKind(str, Enum):
     PROMPT_GENERATION = "prompt_generation"
@@ -14,9 +12,10 @@ class OperationKind(str, Enum):
 @dataclass(frozen=True)
 class PromptGenerationOperation:
     prose: str
-    target_model_name: str
-    style_policy: str
-    output_mode: PromptMode
+    context_blocks: tuple[tuple[str, str], ...]
+    capability_instructions: tuple[str, ...]
+    requested_capabilities: tuple[str, ...]
+    capability_configs: dict[str, dict[str, Any]]
     response_schema_name: str
     response_schema: dict[str, Any]
     kind: OperationKind = field(init=False, default=OperationKind.PROMPT_GENERATION)

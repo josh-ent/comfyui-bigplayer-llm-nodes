@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from bigplayer_prompting.nodes import BigPlayerPromptSimple
+from bigplayer_prompting.nodes import BigPlayerLLMProvider
 from bigplayer_prompting.provider import list_models, list_provider_ids, provider_model_map
 
 
@@ -24,8 +24,7 @@ def test_registered_xai_provider_models_match_expected_node_dropdown():
 
 def test_no_provider_does_not_require_api_key():
     assert (
-        BigPlayerPromptSimple.VALIDATE_INPUTS(
-            prose="bright red apple",
+        BigPlayerLLMProvider.VALIDATE_INPUTS(
             api_key="",
             provider="No Provider",
             provider_model="Positive",

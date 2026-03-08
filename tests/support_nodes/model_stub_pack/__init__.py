@@ -80,14 +80,78 @@ class BigPlayerTestSplitSink:
         }
 
 
+class BigPlayerTestPairSink:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "value_1": ("STRING", {"forceInput": True}),
+                "value_2": ("STRING", {"forceInput": True}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("value_1", "value_2")
+    FUNCTION = "collect"
+    CATEGORY = "Testing/BigPlayer"
+    OUTPUT_NODE = True
+
+    def collect(self, value_1, value_2):
+        return {
+            "ui": {
+                "value_1": [value_1],
+                "value_2": [value_2],
+            },
+            "result": (value_1, value_2),
+        }
+
+
+class BigPlayerTestKSamplerSink:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "value_1": ("INT", {"forceInput": True}),
+                "value_2": ("FLOAT", {"forceInput": True}),
+                "value_3": ("STRING", {"forceInput": True}),
+                "value_4": ("STRING", {"forceInput": True}),
+                "value_5": ("FLOAT", {"forceInput": True}),
+                "value_6": ("STRING", {"forceInput": True}),
+            }
+        }
+
+    RETURN_TYPES = ("INT", "FLOAT", "STRING", "STRING", "FLOAT", "STRING")
+    RETURN_NAMES = ("value_1", "value_2", "value_3", "value_4", "value_5", "value_6")
+    FUNCTION = "collect"
+    CATEGORY = "Testing/BigPlayer"
+    OUTPUT_NODE = True
+
+    def collect(self, value_1, value_2, value_3, value_4, value_5, value_6):
+        return {
+            "ui": {
+                "value_1": [value_1],
+                "value_2": [value_2],
+                "value_3": [value_3],
+                "value_4": [value_4],
+                "value_5": [value_5],
+                "value_6": [value_6],
+            },
+            "result": (value_1, value_2, value_3, value_4, value_5, value_6),
+        }
+
+
 NODE_CLASS_MAPPINGS = {
     "BigPlayerTestModel": BigPlayerTestModel,
     "BigPlayerTestSink": BigPlayerTestSink,
     "BigPlayerTestSplitSink": BigPlayerTestSplitSink,
+    "BigPlayerTestPairSink": BigPlayerTestPairSink,
+    "BigPlayerTestKSamplerSink": BigPlayerTestKSamplerSink,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "BigPlayerTestModel": "BigPlayer Test Model",
     "BigPlayerTestSink": "BigPlayer Test Sink",
     "BigPlayerTestSplitSink": "BigPlayer Test Split Sink",
+    "BigPlayerTestPairSink": "BigPlayer Test Pair Sink",
+    "BigPlayerTestKSamplerSink": "BigPlayer Test KSampler Sink",
 }
