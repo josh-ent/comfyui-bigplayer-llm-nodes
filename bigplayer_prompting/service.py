@@ -6,10 +6,10 @@ from typing import Any
 from .cache import CacheKey, DeterministicCache, stable_hash
 from .model_name import extract_model_name
 from .prompts import SYSTEM_PROMPT, build_user_prompt
-from .provider import GrokProvider, ProviderRequest, redact_secret
+from .provider import REGISTERED_PROVIDERS, ProviderRequest, redact_secret
 from .schemas import PromptMode, get_provider_schema, validate_result
 
-SCHEMA_VERSION = "phase1-v1"
+SCHEMA_VERSION = "phase1-v2"
 
 
 @dataclass(frozen=True)
@@ -17,20 +17,23 @@ class PromptGenerationRequest:
     mode: PromptMode
     prose: str
     api_key: str
-    llm_model: str
-    model: Any
+    provider: str
+    provider_model: str
+    target_model: Any
     style_policy: str = ""
     provider_base_url: str = ""
     assume_determinism: bool = True
 
 
 class PromptGenerationService:
-    def __init__(self, provider: GrokProvider | None = None, cache: DeterministicCache | None = None) -> None:
-        self._provider = provider or GrokProvider()
+    def __init__(self, cache: DeterministicCache | None = None, providers: dict[str, Any] | None = None) -> None:
         self._cache = cache or DeterministicCache()
+        self._providers = providers or {
+            provider_id: definition.factory() for provider_id, definition in REGISTERED_PROVIDERS.items()
+        }
 
     def generate(self, request: PromptGenerationRequest):
-        model_name = extract_model_name(request.model)
+        model_name = extract_model_name(request.target_model)
         cache_key = self._build_cache_key(request, model_name)
         if request.assume_determinism:
             cached = self._cache.get(cache_key)
@@ -43,10 +46,10 @@ class PromptGenerationService:
             style_policy=request.style_policy,
             mode=request.mode,
         )
-        payload = self._provider.generate_structured(
+        payload = self._providers[request.provider].generate_structured(
             ProviderRequest(
                 api_key=request.api_key,
-                llm_model=request.llm_model,
+                provider_model=request.provider_model,
                 system_prompt=SYSTEM_PROMPT,
                 user_prompt=user_prompt,
                 schema_name=f"bigplayer_{request.mode}_prompt_result",
@@ -65,7 +68,8 @@ class PromptGenerationService:
         *,
         prose: str,
         api_key: str,
-        llm_model: str,
+        provider: str,
+        provider_model: str,
         style_policy: str,
         provider_base_url: str,
         assume_determinism: bool,
@@ -79,7 +83,8 @@ class PromptGenerationService:
                 "mode": mode,
                 "prose": prose.strip(),
                 "api_key": redact_secret(api_key),
-                "llm_model": llm_model.strip(),
+                "provider": provider,
+                "provider_model": provider_model,
                 "style_policy": style_policy.strip(),
                 "provider_base_url": provider_base_url.strip(),
             }
@@ -93,7 +98,8 @@ class PromptGenerationService:
                     "mode": request.mode,
                     "prose": request.prose.strip(),
                     "api_key": redact_secret(request.api_key),
-                    "llm_model": request.llm_model.strip(),
+                    "provider": request.provider,
+                    "provider_model": request.provider_model,
                     "model_name": model_name,
                     "style_policy": request.style_policy.strip(),
                     "provider_base_url": request.provider_base_url.strip(),
@@ -110,4 +116,3 @@ class PromptGenerationService:
             suffix = " Fallback used: duplicated L/G channel text because the provider did not separate the channels."
             result.comments = f"{result.comments}{suffix}".strip()
         return result
-

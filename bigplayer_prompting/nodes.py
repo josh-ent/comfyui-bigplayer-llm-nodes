@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .provider import REGISTERED_PROVIDERS, list_models, list_provider_ids
 from .errors import BigPlayerError
 from .service import PromptGenerationRequest, PromptGenerationService
 
@@ -7,13 +8,15 @@ from .service import PromptGenerationRequest, PromptGenerationService
 _SERVICE = PromptGenerationService()
 
 
-def _validate_common_text_inputs(prose: str, api_key: str, llm_model: str) -> bool | str:
+def _validate_common_text_inputs(prose: str, api_key: str, provider: str, provider_model: str) -> bool | str:
     if prose is None or not prose.strip():
         return "The prose input cannot be empty."
     if api_key is None or not api_key.strip():
         return "The api_key input cannot be empty."
-    if llm_model is None or not llm_model.strip():
-        return "The llm_model input cannot be empty."
+    if provider not in REGISTERED_PROVIDERS:
+        return f"Unsupported provider: {provider}"
+    if provider_model not in REGISTERED_PROVIDERS[provider].models:
+        return f"Unsupported model `{provider_model}` for provider `{provider}`."
     return True
 
 
@@ -43,14 +46,21 @@ class _BasePromptNode:
                         "tooltip": "Provider API key. This value is never echoed back by the node.",
                     },
                 ),
-                "llm_model": (
-                    "STRING",
+                "provider": (
+                    list_provider_ids(),
                     {
-                        "default": "grok-3-mini",
-                        "tooltip": "The upstream LLM model identifier to call.",
+                        "default": list_provider_ids()[0],
+                        "tooltip": "Registered LLM provider to call.",
                     },
                 ),
-                "model": (
+                "provider_model": (
+                    list_models(),
+                    {
+                        "default": list_models()[0],
+                        "tooltip": "Registered provider model to call.",
+                    },
+                ),
+                "target_model": (
                     "MODEL",
                     {
                         "tooltip": "Connected ComfyUI MODEL. The node derives only the model name from it.",
@@ -82,8 +92,8 @@ class _BasePromptNode:
         }
 
     @classmethod
-    def VALIDATE_INPUTS(cls, prose=None, api_key=None, llm_model=None, **kwargs):
-        return _validate_common_text_inputs(prose, api_key, llm_model)
+    def VALIDATE_INPUTS(cls, prose=None, api_key=None, provider=None, provider_model=None, **kwargs):
+        return _validate_common_text_inputs(prose, api_key, provider, provider_model)
 
 
 class BigPlayerPromptSimple(_BasePromptNode):
@@ -97,15 +107,16 @@ class BigPlayerPromptSimple(_BasePromptNode):
     FUNCTION = "generate"
     SEARCH_ALIASES = ["grok prompt", "llm prompt", "bigplayer simple prompt"]
 
-    def generate(self, prose, api_key, llm_model, model, style_policy="", provider_base_url="", assume_determinism=True):
+    def generate(self, prose, api_key, provider, provider_model, target_model, style_policy="", provider_base_url="", assume_determinism=True):
         try:
             result = _SERVICE.generate(
                 PromptGenerationRequest(
                     mode="simple",
                     prose=prose,
                     api_key=api_key,
-                    llm_model=llm_model,
-                    model=model,
+                    provider=provider,
+                    provider_model=provider_model,
+                    target_model=target_model,
                     style_policy=style_policy,
                     provider_base_url=provider_base_url,
                     assume_determinism=assume_determinism,
@@ -116,11 +127,22 @@ class BigPlayerPromptSimple(_BasePromptNode):
         return (result.positive_prompt, result.negative_prompt, result.comments)
 
     @classmethod
-    def IS_CHANGED(cls, prose="", api_key="", llm_model="", style_policy="", provider_base_url="", assume_determinism=True, **kwargs):
+    def IS_CHANGED(
+        cls,
+        prose="",
+        api_key="",
+        provider="",
+        provider_model="",
+        style_policy="",
+        provider_base_url="",
+        assume_determinism=True,
+        **kwargs,
+    ):
         return _SERVICE.build_is_changed_token(
             prose=prose,
             api_key=api_key,
-            llm_model=llm_model,
+            provider=provider,
+            provider_model=provider_model,
             style_policy=style_policy,
             provider_base_url=provider_base_url,
             assume_determinism=assume_determinism,
@@ -147,14 +169,15 @@ class BigPlayerPromptSplit(_BasePromptNode):
     FUNCTION = "generate"
     SEARCH_ALIASES = ["grok split prompt", "llm split prompt", "bigplayer split prompt"]
 
-    def generate(self, prose, api_key, llm_model, model, style_policy="", provider_base_url="", assume_determinism=True):
+    def generate(self, prose, api_key, provider, provider_model, target_model, style_policy="", provider_base_url="", assume_determinism=True):
         result = _SERVICE.generate(
             PromptGenerationRequest(
                 mode="split",
                 prose=prose,
                 api_key=api_key,
-                llm_model=llm_model,
-                model=model,
+                provider=provider,
+                provider_model=provider_model,
+                target_model=target_model,
                 style_policy=style_policy,
                 provider_base_url=provider_base_url,
                 assume_determinism=assume_determinism,
@@ -169,11 +192,22 @@ class BigPlayerPromptSplit(_BasePromptNode):
         )
 
     @classmethod
-    def IS_CHANGED(cls, prose="", api_key="", llm_model="", style_policy="", provider_base_url="", assume_determinism=True, **kwargs):
+    def IS_CHANGED(
+        cls,
+        prose="",
+        api_key="",
+        provider="",
+        provider_model="",
+        style_policy="",
+        provider_base_url="",
+        assume_determinism=True,
+        **kwargs,
+    ):
         return _SERVICE.build_is_changed_token(
             prose=prose,
             api_key=api_key,
-            llm_model=llm_model,
+            provider=provider,
+            provider_model=provider_model,
             style_policy=style_policy,
             provider_base_url=provider_base_url,
             assume_determinism=assume_determinism,

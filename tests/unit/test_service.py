@@ -33,14 +33,15 @@ class FakeProvider:
 
 def test_service_uses_model_name_and_mode_in_request():
     provider = FakeProvider()
-    service = PromptGenerationService(provider=provider)
+    service = PromptGenerationService(providers={"xAI": provider})
     service.generate(
         PromptGenerationRequest(
             mode="simple",
             prose="A cinematic portrait of a cat.",
             api_key="secret-key",
-            llm_model="grok-test",
-            model=FakeModel(),
+            provider="xAI",
+            provider_model="grok-4-latest",
+            target_model=FakeModel(),
         )
     )
     sent = provider.calls[0]
@@ -50,13 +51,14 @@ def test_service_uses_model_name_and_mode_in_request():
 
 def test_service_caches_when_assume_determinism_is_enabled():
     provider = FakeProvider()
-    service = PromptGenerationService(provider=provider)
+    service = PromptGenerationService(providers={"xAI": provider})
     request = PromptGenerationRequest(
         mode="simple",
         prose="A cinematic portrait of a cat.",
         api_key="secret-key",
-        llm_model="grok-test",
-        model=FakeModel(),
+        provider="xAI",
+        provider_model="grok-4-latest",
+        target_model=FakeModel(),
         assume_determinism=True,
     )
     first = service.generate(request)
@@ -67,13 +69,14 @@ def test_service_caches_when_assume_determinism_is_enabled():
 
 def test_service_reexecutes_when_assume_determinism_is_disabled():
     provider = FakeProvider()
-    service = PromptGenerationService(provider=provider)
+    service = PromptGenerationService(providers={"xAI": provider})
     request = PromptGenerationRequest(
         mode="simple",
         prose="A cinematic portrait of a cat.",
         api_key="secret-key",
-        llm_model="grok-test",
-        model=FakeModel(),
+        provider="xAI",
+        provider_model="grok-4-latest",
+        target_model=FakeModel(),
         assume_determinism=False,
     )
     service.generate(request)
@@ -92,15 +95,15 @@ def test_split_fallback_is_annotated():
                 "comments": "Provider could not distinguish channels.",
             }
 
-    service = PromptGenerationService(provider=DuplicatingProvider())
+    service = PromptGenerationService(providers={"xAI": DuplicatingProvider()})
     result = service.generate(
         PromptGenerationRequest(
             mode="split",
             prose="A cinematic portrait of a cat.",
             api_key="secret-key",
-            llm_model="grok-test",
-            model=FakeModel(),
+            provider="xAI",
+            provider_model="grok-4-latest",
+            target_model=FakeModel(),
         )
     )
     assert "Fallback used" in result.comments
-

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -10,12 +10,18 @@ from .errors import MalformedProviderResponseError, ProviderError
 
 DEFAULT_BASE_URL = "https://api.x.ai/v1"
 DEFAULT_TIMEOUT_SECONDS = 30.0
+XAI_PROVIDER_ID = "xAI"
+XAI_MODELS = (
+    "grok-4-1-fast-non-reasoning",
+    "grok-4-1-fast-reasoning",
+    "grok-4-latest",
+)
 
 
 @dataclass(frozen=True)
 class ProviderRequest:
     api_key: str
-    llm_model: str
+    provider_model: str
     system_prompt: str
     user_prompt: str
     schema_name: str
@@ -29,6 +35,14 @@ def redact_secret(secret: str) -> str:
     return f"<redacted:{len(secret)}>"
 
 
+@dataclass(frozen=True)
+class ProviderDefinition:
+    provider_id: str
+    models: tuple[str, ...]
+    default_base_url: str
+    factory: Callable[[], "GrokProvider"]
+
+
 class GrokProvider:
     def __init__(self, *, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS) -> None:
         self._timeout_seconds = timeout_seconds
@@ -36,7 +50,7 @@ class GrokProvider:
     def generate_structured(self, request: ProviderRequest) -> dict[str, Any]:
         base_url = (request.provider_base_url or DEFAULT_BASE_URL).rstrip("/")
         payload = {
-            "model": request.llm_model,
+            "model": request.provider_model,
             "store": False,
             "input": [
                 {
@@ -106,3 +120,26 @@ class GrokProvider:
 
         raise MalformedProviderResponseError("Provider response did not contain structured output text.")
 
+
+REGISTERED_PROVIDERS: dict[str, ProviderDefinition] = {
+    XAI_PROVIDER_ID: ProviderDefinition(
+        provider_id=XAI_PROVIDER_ID,
+        models=XAI_MODELS,
+        default_base_url=DEFAULT_BASE_URL,
+        factory=GrokProvider,
+    ),
+}
+
+
+def list_provider_ids() -> list[str]:
+    return list(REGISTERED_PROVIDERS)
+
+
+def list_models(provider_id: str | None = None) -> list[str]:
+    if provider_id is not None:
+        return list(REGISTERED_PROVIDERS[provider_id].models)
+
+    all_models: list[str] = []
+    for provider in REGISTERED_PROVIDERS.values():
+        all_models.extend(provider.models)
+    return all_models

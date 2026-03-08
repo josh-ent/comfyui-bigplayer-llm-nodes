@@ -13,7 +13,7 @@ from bigplayer_prompting.provider import GrokProvider, ProviderRequest
 def _request() -> ProviderRequest:
     return ProviderRequest(
         api_key="secret-key",
-        llm_model="grok-test",
+        provider_model="grok-4-latest",
         system_prompt="system",
         user_prompt="user",
         schema_name="test_schema",
@@ -72,4 +72,3 @@ def test_provider_redacts_secret_in_http_errors(monkeypatch):
         GrokProvider().generate_structured(_request())
     assert "secret-key" not in str(exc.value)
     assert "<redacted:" in str(exc.value)
-

@@ -142,8 +142,9 @@ def build_simple_workflow(provider_base_url: str) -> dict:
             "inputs": {
                 "prose": "A cinematic portrait of a cat in a film still.",
                 "api_key": "test-key",
-                "llm_model": "grok-test",
-                "model": ["1", 0],
+                "provider": "xAI",
+                "provider_model": "grok-4-latest",
+                "target_model": ["1", 0],
                 "style_policy": "Keep it practical.",
                 "provider_base_url": provider_base_url,
                 "assume_determinism": True,
@@ -171,8 +172,9 @@ def build_split_workflow(provider_base_url: str) -> dict:
             "inputs": {
                 "prose": "A cinematic portrait of a cat in a film still.",
                 "api_key": "test-key",
-                "llm_model": "grok-test",
-                "model": ["1", 0],
+                "provider": "xAI",
+                "provider_model": "grok-4-latest",
+                "target_model": ["1", 0],
                 "style_policy": "",
                 "provider_base_url": provider_base_url,
                 "assume_determinism": True,
@@ -222,18 +224,18 @@ def test_simple_and_split_nodes_execute_in_comfyui():
         }
 
     with mock_provider_server(responder) as provider_base_url:
-            with comfy_server() as port:
-                simple_id = queue_prompt(port, build_simple_workflow(provider_base_url))
-                simple_history = wait_for_history(port, simple_id)
-                simple_output = simple_history["outputs"]["3"]
-                assert simple_output["value_1"][0] == "cinematic cat portrait, shallow depth of field"
-                assert simple_output["value_3"][0].startswith("Used the SDXL checkpoint name")
+        with comfy_server() as port:
+            simple_id = queue_prompt(port, build_simple_workflow(provider_base_url))
+            simple_history = wait_for_history(port, simple_id)
+            simple_output = simple_history["outputs"]["3"]
+            assert simple_output["value_1"][0] == "cinematic cat portrait, shallow depth of field"
+            assert simple_output["value_3"][0].startswith("Used the SDXL checkpoint name")
 
-                split_id = queue_prompt(port, build_split_workflow(provider_base_url))
-                split_history = wait_for_history(port, split_id)
-                split_output = split_history["outputs"]["3"]
-                assert split_output["value_1"][0] == "cat portrait"
-                assert split_output["value_5"][0] == "Separated content and global style cues."
+            split_id = queue_prompt(port, build_split_workflow(provider_base_url))
+            split_history = wait_for_history(port, split_id)
+            split_output = split_history["outputs"]["3"]
+            assert split_output["value_1"][0] == "cat portrait"
+            assert split_output["value_5"][0] == "Separated content and global style cues."
 
 
 def test_comfyui_surface_schema_failures():
@@ -251,10 +253,10 @@ def test_comfyui_surface_schema_failures():
             ]
         }
 
-        with mock_provider_server(responder) as provider_base_url:
-            with comfy_server() as port:
-                prompt_id = queue_prompt(port, build_simple_workflow(provider_base_url))
-                history = wait_for_history(port, prompt_id, timeout_seconds=10)
-                assert history["status"]["status_str"] == "error"
-                error_message = history["status"]["messages"][-1][1]["exception_message"]
-                assert "schema validation" in error_message
+    with mock_provider_server(responder) as provider_base_url:
+        with comfy_server() as port:
+            prompt_id = queue_prompt(port, build_simple_workflow(provider_base_url))
+            history = wait_for_history(port, prompt_id, timeout_seconds=10)
+            assert history["status"]["status_str"] == "error"
+            error_message = history["status"]["messages"][-1][1]["exception_message"]
+            assert "schema validation" in error_message

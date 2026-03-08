@@ -19,7 +19,7 @@ def test_live_provider_accepts_structured_output():
     result = provider.generate_structured(
         ProviderRequest(
             api_key=os.environ["BIGPLAYER_GROK_API_KEY"],
-            llm_model=os.environ.get("BIGPLAYER_GROK_MODEL", "grok-3-mini"),
+            provider_model=os.environ.get("BIGPLAYER_GROK_MODEL", "grok-4-latest"),
             system_prompt="Return only the requested schema.",
             user_prompt="Return a JSON object with a single key `value` set to `ok`.",
             schema_name="bigplayer_live_smoke",
@@ -33,4 +33,3 @@ def test_live_provider_accepts_structured_output():
         )
     )
     assert result["value"]
-
