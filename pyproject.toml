@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comfyui-bigplayer-llm-nodes"
+version = "0.1.0"
+description = "ComfyUI prompt-generation nodes backed by external LLM providers."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Josh Ent" }
+]
+dependencies = [
+  "httpx>=0.28,<0.29",
+  "pydantic>=2.12,<3",
+]
+classifiers = [
+  "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "respx>=0.22",
+]
+
+[project.urls]
+Homepage = "https://github.com/josh-ent/comfyui-bigplayer-llm-nodes"
+Documentation = "https://github.com/josh-ent/comfyui-bigplayer-llm-nodes"
+Repository = "https://github.com/josh-ent/comfyui-bigplayer-llm-nodes"
+Issues = "https://github.com/josh-ent/comfyui-bigplayer-llm-nodes/issues"
+
+[tool.comfy]
+DisplayName = "BigPlayer Prompting"
+PublisherId = "josh-ent"
+Icon = ""
+requires-comfyui = ">=0.16.4"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "integration: tests that start a local ComfyUI runtime",
+  "live: tests that hit a real Grok endpoint when explicitly enabled",
+]
+
+[tool.setuptools]
+packages = ["bigplayer_prompting"]
+

@@ -6,12 +6,12 @@ This project converts freeform user prose into structured prompts for image and 
 
 ## Status
 
-Early development.
+Phase 1 scaffold implemented.
 
 Current project focus:
 - Phase 1: prose to prompts
 - Grok provider integration
-- simple and split prompt output nodes
+- simple and split prompt output nodes under `BigPlayer/Prompting`
 - strict schema-bound structured outputs
 - deterministic caching option for repeatable workflows
 
@@ -29,19 +29,54 @@ This is an **LLM-assisted** system. Prompt transformation and selection logic ar
 
 ### 1. Simple Prompt Node
 
-Takes user prose plus target model context and returns:
+Takes user prose plus a connected `MODEL` and returns:
 - `positive_prompt`
 - `negative_prompt`
 - `comments`
 
 ### 2. Split Prompt Node
 
-Takes user prose plus target model context and returns:
+Takes user prose plus a connected `MODEL` and returns:
 - `text_l_positive`
 - `text_g_positive`
 - `text_l_negative`
 - `text_g_negative`
 - `comments`
+
+## Development setup
+
+Create and use the project-local virtual environment before doing any work:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip setuptools wheel
+.venv/bin/python -m pip install -r .integration/ComfyUI/requirements.txt
+.venv/bin/python -m pip install -e .[dev]
+```
+
+This repository also keeps a local ComfyUI checkout at `.integration/ComfyUI` for integration testing. The working tree is symlinked into that checkout's `custom_nodes` directory so tests exercise the current source directly.
+
+## Testing
+
+Run the default unit suite:
+
+```bash
+.venv/bin/pytest tests/unit
+```
+
+Run the mocked ComfyUI integration suite:
+
+```bash
+.venv/bin/pytest tests/integration -m integration
+```
+
+Run opt-in real Grok validation:
+
+```bash
+BIGPLAYER_GROK_LIVE_TEST=1 \
+BIGPLAYER_GROK_API_KEY=... \
+.venv/bin/pytest tests/unit/test_live_provider.py -m live
+```
 
 ### 3. LoRA-Aware Prompt Node
 
