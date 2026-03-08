@@ -26,8 +26,22 @@ class ProviderConfig:
     provider_base_url: str = ""
 
 
+@dataclass(frozen=True)
+class InvocationContext:
+    status_callback: Callable[[str], None] | None = None
+
+    def report_status(self, message: str) -> None:
+        if self.status_callback is not None and message:
+            self.status_callback(message)
+
+
 class OperationProvider(Protocol):
-    def invoke(self, operation: Any, config: ProviderConfig) -> dict[str, Any]:
+    def invoke(
+        self,
+        operation: Any,
+        config: ProviderConfig,
+        context: InvocationContext | None = None,
+    ) -> dict[str, Any]:
         ...
 
 

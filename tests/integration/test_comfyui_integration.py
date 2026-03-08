@@ -225,6 +225,7 @@ def build_no_provider_simple_workflow(provider_model: str, prose: str) -> dict:
 
 def test_simple_and_split_nodes_execute_in_comfyui():
     def responder(body):
+        assert body["stream"] is True
         user_text = body["input"][1]["content"][0]["text"]
         if "Output mode:\nsimple" in user_text:
             data = {
@@ -270,6 +271,7 @@ def test_simple_and_split_nodes_execute_in_comfyui():
 
 def test_comfyui_surface_schema_failures():
     def responder(body):
+        assert body["stream"] is True
         return {
             "output": [
                 {

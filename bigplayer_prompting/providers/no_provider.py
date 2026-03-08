@@ -4,7 +4,7 @@ from typing import Any
 
 from ..errors import ProviderError, UnsupportedOperationError
 from ..operations import OperationKind, PromptGenerationOperation
-from ..provider import ProviderConfig
+from ..provider import InvocationContext, ProviderConfig
 
 NO_PROVIDER_ID = "No Provider"
 NO_PROVIDER_BASE_URL = ""
@@ -13,7 +13,14 @@ NO_PROVIDER_COMMENT = "Goes nowhere, does nothing"
 
 
 class NoProvider:
-    def invoke(self, operation: Any, config: ProviderConfig) -> dict[str, Any]:
+    def invoke(
+        self,
+        operation: Any,
+        config: ProviderConfig,
+        context: InvocationContext | None = None,
+    ) -> dict[str, Any]:
+        if context is not None:
+            context.report_status("Running local No Provider passthrough.")
         self._validate_model(config.provider_model)
         kind = getattr(operation, "kind", None)
         if kind != OperationKind.PROMPT_GENERATION:

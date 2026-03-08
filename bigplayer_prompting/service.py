@@ -7,7 +7,7 @@ from .cache import CacheKey, DeterministicCache, stable_hash
 from .errors import ProviderError
 from .model_name import extract_model_name
 from .operations import PromptGenerationOperation
-from .provider import ProviderConfig, REGISTERED_PROVIDERS, redact_secret
+from .provider import InvocationContext, ProviderConfig, REGISTERED_PROVIDERS, redact_secret
 from .schemas import PromptMode, get_provider_schema, validate_result
 
 SCHEMA_VERSION = "phase1-v2"
@@ -33,7 +33,8 @@ class PromptGenerationService:
             provider_id: definition.factory() for provider_id, definition in REGISTERED_PROVIDERS.items()
         }
 
-    def generate(self, request: PromptGenerationRequest):
+    def generate(self, request: PromptGenerationRequest, invocation_context: InvocationContext | None = None):
+        invocation_context = invocation_context or InvocationContext()
         provider_definition = REGISTERED_PROVIDERS.get(request.provider)
         if provider_definition is None:
             raise ProviderError(f"Unsupported provider `{request.provider}`.")
@@ -42,11 +43,13 @@ class PromptGenerationService:
                 f"Provider `{request.provider}` does not support model `{request.provider_model}`."
             )
 
+        invocation_context.report_status("Inspecting connected target model...")
         model_name = extract_model_name(request.target_model)
         cache_key = self._build_cache_key(request, model_name)
         if request.assume_determinism:
             cached = self._cache.get(cache_key)
             if cached is not None:
+                invocation_context.report_status("Reusing cached prompt result.")
                 return cached
 
         operation = PromptGenerationOperation(
@@ -57,6 +60,9 @@ class PromptGenerationService:
             response_schema_name=f"bigplayer_{request.mode}_prompt_result",
             response_schema=get_provider_schema(request.mode),
         )
+        invocation_context.report_status(
+            f"Calling {request.provider} with model {request.provider_model}..."
+        )
         payload = self._providers[request.provider].invoke(
             operation,
             ProviderConfig(
@@ -65,11 +71,14 @@ class PromptGenerationService:
                 api_key=request.api_key,
                 provider_base_url=request.provider_base_url,
             ),
+            invocation_context,
         )
+        invocation_context.report_status("Validating structured provider response...")
         result = validate_result(request.mode, payload)
         result = self._annotate_split_fallback(result, request.mode)
         if request.assume_determinism:
             self._cache.set(cache_key, result)
+        invocation_context.report_status("Prompt generation complete.")
         return result
 
     def build_is_changed_token(

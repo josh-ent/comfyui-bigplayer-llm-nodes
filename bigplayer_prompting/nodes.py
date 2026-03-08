@@ -3,6 +3,7 @@ from __future__ import annotations
 from .provider import REGISTERED_PROVIDERS, list_models, list_provider_ids, provider_model_map
 from .errors import BigPlayerError
 from .service import PromptGenerationRequest, PromptGenerationService
+from .status import ComfyStatusReporter
 
 
 _SERVICE = PromptGenerationService()
@@ -89,7 +90,10 @@ class _BasePromptNode:
                         "tooltip": "Reuse deterministic results when the request is unchanged.",
                     },
                 ),
-            }
+            },
+            "hidden": {
+                "unique_id": "UNIQUE_ID",
+            },
         }
 
     @classmethod
@@ -108,7 +112,19 @@ class BigPlayerPromptSimple(_BasePromptNode):
     FUNCTION = "generate"
     SEARCH_ALIASES = ["grok prompt", "llm prompt", "bigplayer simple prompt"]
 
-    def generate(self, prose, api_key, provider, provider_model, target_model, style_policy="", provider_base_url="", assume_determinism=True):
+    def generate(
+        self,
+        prose,
+        api_key,
+        provider,
+        provider_model,
+        target_model,
+        style_policy="",
+        provider_base_url="",
+        assume_determinism=True,
+        unique_id=None,
+    ):
+        reporter = ComfyStatusReporter(unique_id)
         try:
             result = _SERVICE.generate(
                 PromptGenerationRequest(
@@ -121,7 +137,8 @@ class BigPlayerPromptSimple(_BasePromptNode):
                     style_policy=style_policy,
                     provider_base_url=provider_base_url,
                     assume_determinism=assume_determinism,
-                )
+                ),
+                reporter.as_invocation_context(),
             )
         except BigPlayerError:
             raise
@@ -170,7 +187,19 @@ class BigPlayerPromptSplit(_BasePromptNode):
     FUNCTION = "generate"
     SEARCH_ALIASES = ["grok split prompt", "llm split prompt", "bigplayer split prompt"]
 
-    def generate(self, prose, api_key, provider, provider_model, target_model, style_policy="", provider_base_url="", assume_determinism=True):
+    def generate(
+        self,
+        prose,
+        api_key,
+        provider,
+        provider_model,
+        target_model,
+        style_policy="",
+        provider_base_url="",
+        assume_determinism=True,
+        unique_id=None,
+    ):
+        reporter = ComfyStatusReporter(unique_id)
         result = _SERVICE.generate(
             PromptGenerationRequest(
                 mode="split",
@@ -182,7 +211,8 @@ class BigPlayerPromptSplit(_BasePromptNode):
                 style_policy=style_policy,
                 provider_base_url=provider_base_url,
                 assume_determinism=assume_determinism,
-            )
+            ),
+            reporter.as_invocation_context(),
         )
         return (
             result.text_l_positive,

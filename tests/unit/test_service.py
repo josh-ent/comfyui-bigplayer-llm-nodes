@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from bigplayer_prompting.operations import OperationKind
-from bigplayer_prompting.provider import ProviderConfig
+from bigplayer_prompting.provider import InvocationContext, ProviderConfig
 from bigplayer_prompting.service import PromptGenerationRequest, PromptGenerationService
 
 
@@ -16,10 +16,12 @@ class FakeProvider:
     def __init__(self):
         self.operations = []
         self.configs = []
+        self.contexts = []
 
-    def invoke(self, operation, config):
+    def invoke(self, operation, config, context=None):
         self.operations.append(operation)
         self.configs.append(config)
+        self.contexts.append(context)
         if operation.response_schema_name.endswith("simple_prompt_result"):
             return {
                 "positive_prompt": "cinematic cat portrait",
@@ -56,6 +58,7 @@ def test_service_uses_model_name_and_mode_in_request():
     assert operation.response_schema_name == "bigplayer_simple_prompt_result"
     assert config.provider == "xAI"
     assert config.provider_model == "grok-4-latest"
+    assert isinstance(provider.contexts[0], InvocationContext)
 
 
 def test_service_caches_when_assume_determinism_is_enabled():
@@ -95,7 +98,7 @@ def test_service_reexecutes_when_assume_determinism_is_disabled():
 
 def test_split_fallback_is_annotated():
     class DuplicatingProvider(FakeProvider):
-        def invoke(self, operation, config):
+        def invoke(self, operation, config, context=None):
             return {
                 "text_l_positive": "same",
                 "text_g_positive": "same",
@@ -125,7 +128,7 @@ def test_provider_interface_supports_future_operation_shapes():
         value: str = "payload"
 
     class FakeFutureProvider:
-        def invoke(self, operation, config):
+        def invoke(self, operation, config, context=None):
             return {"kind": operation.kind, "value": operation.value, "provider": config.provider}
 
     provider = FakeFutureProvider()

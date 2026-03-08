@@ -8,7 +8,7 @@ import httpx
 
 from ..errors import MalformedProviderResponseError, ProviderError, UnsupportedOperationError
 from ..operations import OperationKind, PromptGenerationOperation
-from ..provider import ProviderConfig, redact_secret
+from ..provider import InvocationContext, ProviderConfig, redact_secret
 
 XAI_PROVIDER_ID = "xAI"
 XAI_PROVIDER_BASE_URL = "https://api.x.ai/v1"
@@ -17,7 +17,10 @@ XAI_MODELS = (
     "grok-4-1-fast-reasoning",
     "grok-4-latest",
 )
-DEFAULT_TIMEOUT_SECONDS = 30.0
+CONNECT_TIMEOUT_SECONDS = 10.0
+READ_TIMEOUT_SECONDS = 300.0
+WRITE_TIMEOUT_SECONDS = 30.0
+POOL_TIMEOUT_SECONDS = 30.0
 
 
 @dataclass(frozen=True)
@@ -32,6 +35,7 @@ class RenderedXAIRequest:
         return {
             "model": self.model,
             "store": False,
+            "stream": True,
             "input": [
                 {
                     "role": "system",
@@ -55,25 +59,54 @@ class RenderedXAIRequest:
 
 
 class XAIProvider:
-    def __init__(self, *, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS) -> None:
-        self._timeout_seconds = timeout_seconds
+    def __init__(
+        self,
+        *,
+        connect_timeout_seconds: float = CONNECT_TIMEOUT_SECONDS,
+        read_timeout_seconds: float = READ_TIMEOUT_SECONDS,
+        write_timeout_seconds: float = WRITE_TIMEOUT_SECONDS,
+        pool_timeout_seconds: float = POOL_TIMEOUT_SECONDS,
+    ) -> None:
+        self._timeout = httpx.Timeout(
+            connect=connect_timeout_seconds,
+            read=read_timeout_seconds,
+            write=write_timeout_seconds,
+            pool=pool_timeout_seconds,
+        )
 
-    def invoke(self, operation: Any, config: ProviderConfig) -> dict[str, Any]:
+    def invoke(
+        self,
+        operation: Any,
+        config: ProviderConfig,
+        context: InvocationContext | None = None,
+    ) -> dict[str, Any]:
         request = self.render_operation(operation, config)
         base_url = (config.provider_base_url or XAI_PROVIDER_BASE_URL).rstrip("/")
         headers = {
             "Authorization": f"Bearer {config.api_key}",
             "Content-Type": "application/json",
         }
+        context = context or InvocationContext()
 
         try:
-            with httpx.Client(timeout=self._timeout_seconds) as client:
-                response = client.post(f"{base_url}/responses", headers=headers, json=request.as_payload())
-                response.raise_for_status()
+            context.report_status("Connecting to xAI...")
+            with httpx.Client(timeout=self._timeout) as client:
+                with client.stream(
+                    "POST",
+                    f"{base_url}/responses",
+                    headers=headers,
+                    json=request.as_payload(),
+                ) as response:
+                    response.raise_for_status()
+                    body = self._read_response_body(response, context)
         except httpx.TimeoutException as exc:
-            raise ProviderError("Timed out while waiting for the xAI provider response.") from exc
+            raise ProviderError(
+                "Timed out while waiting for the xAI provider response. "
+                "The request uses a long idle read timeout, so this usually means the provider "
+                "stopped sending data rather than simply taking time to think."
+            ) from exc
         except httpx.HTTPStatusError as exc:
-            message = exc.response.text.strip()
+            message = self._response_text(exc.response).strip()
             raise ProviderError(
                 f"xAI provider returned HTTP {exc.response.status_code}. "
                 f"Body: {message.replace(config.api_key, redact_secret(config.api_key))}"
@@ -81,7 +114,6 @@ class XAIProvider:
         except httpx.HTTPError as exc:
             raise ProviderError("Failed to call the xAI provider.") from exc
 
-        body = response.json()
         text = self._extract_text(body)
         try:
             decoded = json.loads(text)
@@ -151,6 +183,37 @@ Requirements:
             schema=operation.response_schema,
         )
 
+    def _read_response_body(self, response: httpx.Response, context: InvocationContext) -> dict[str, Any]:
+        content_type = response.headers.get("content-type", "").lower()
+        if "text/event-stream" not in content_type:
+            context.report_status("Receiving non-streamed xAI response...")
+            response.read()
+            return response.json()
+
+        context.report_status("Waiting for first streamed xAI event...")
+        stream = _StreamAccumulator(context)
+        event_name: str | None = None
+        data_lines: list[str] = []
+
+        for raw_line in response.iter_lines():
+            line = raw_line.strip()
+            if not line:
+                stream.consume_event(event_name, "\n".join(data_lines))
+                event_name = None
+                data_lines = []
+                continue
+            if line.startswith(":"):
+                continue
+            if line.startswith("event:"):
+                event_name = line[6:].strip()
+                continue
+            if line.startswith("data:"):
+                data_lines.append(line[5:].lstrip())
+
+        if data_lines:
+            stream.consume_event(event_name, "\n".join(data_lines))
+        return stream.final_body()
+
     def _extract_text(self, body: dict[str, Any]) -> str:
         output_text = body.get("output_text")
         if isinstance(output_text, str) and output_text.strip():
@@ -171,3 +234,67 @@ Requirements:
     def _validate_model(self, provider_model: str) -> None:
         if provider_model not in XAI_MODELS:
             raise ProviderError(f"xAI provider does not support model `{provider_model}`.")
+
+    def _response_text(self, response: httpx.Response) -> str:
+        try:
+            return response.text
+        except httpx.ResponseNotRead:
+            response.read()
+            return response.text
+
+
+class _StreamAccumulator:
+    def __init__(self, context: InvocationContext) -> None:
+        self._context = context
+        self._text_fragments: list[str] = []
+        self._final_response: dict[str, Any] | None = None
+        self._event_count = 0
+
+    def consume_event(self, event_name: str | None, payload: str) -> None:
+        if not payload:
+            return
+        if payload == "[DONE]":
+            self._context.report_status("xAI stream finished.")
+            return
+
+        try:
+            event = json.loads(payload)
+        except json.JSONDecodeError:
+            return
+        if not isinstance(event, dict):
+            return
+
+        self._event_count += 1
+        event_type = str(event.get("type") or event_name or "")
+
+        if event_type.endswith("output_text.delta"):
+            delta = event.get("delta")
+            if isinstance(delta, str) and delta:
+                self._text_fragments.append(delta)
+                self._context.report_status(
+                    f"Receiving structured output from xAI... {len(''.join(self._text_fragments))} chars"
+                )
+            return
+
+        response_obj = event.get("response")
+        if isinstance(response_obj, dict):
+            self._final_response = response_obj
+            if event_type.endswith("completed"):
+                self._context.report_status("xAI stream completed. Finalizing response...")
+            return
+
+        output_text = event.get("output_text")
+        if isinstance(output_text, str) and output_text:
+            self._text_fragments.append(output_text)
+            self._context.report_status(
+                f"Receiving structured output from xAI... {len(''.join(self._text_fragments))} chars"
+            )
+
+    def final_body(self) -> dict[str, Any]:
+        if self._final_response is not None:
+            return self._final_response
+        if self._text_fragments:
+            return {"output_text": "".join(self._text_fragments)}
+        raise MalformedProviderResponseError(
+            "Provider response stream ended without any structured output text."
+        )
