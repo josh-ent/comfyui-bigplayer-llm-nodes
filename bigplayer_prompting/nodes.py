@@ -27,7 +27,7 @@ def _validate_provider_inputs(api_key: str, provider: str, provider_model: str) 
 
 class BigPlayerLLMProvider:
     CATEGORY = "BigPlayer/Prompting"
-    DESCRIPTION = "Build reusable LLM provider configuration for a BigPlayer LLM Root."
+    DESCRIPTION = "Build reusable LLM provider configuration for a BigPlayer Natural Language Root."
     RETURN_TYPES = ("BIGPLAYER_LLM_PROVIDER",)
     RETURN_NAMES = ("provider_config",)
     FUNCTION = "build"
@@ -91,7 +91,7 @@ class BigPlayerLLMProvider:
         return _validate_provider_inputs(api_key, provider, provider_model)
 
 
-class BigPlayerLLMRoot:
+class BigPlayerNaturalLanguageRoot:
     CATEGORY = "BigPlayer/Prompting"
     DESCRIPTION = "Discover attached BigPlayer modules, perform one LLM call, and publish a shared session."
     RETURN_TYPES = ("BIGPLAYER_LLM_SESSION",)
@@ -148,7 +148,7 @@ class _BaseSessionModule:
             "BIGPLAYER_LLM_SESSION",
             {
                 "forceInput": True,
-                "tooltip": "Shared session emitted by a BigPlayer LLM Root.",
+                "tooltip": "Shared session emitted by a BigPlayer Natural Language Root.",
             },
         )
 
@@ -260,7 +260,7 @@ class BigPlayerModelContext(_BaseSessionModule):
 
 NODE_CLASS_MAPPINGS = {
     "BigPlayerLLMProvider": BigPlayerLLMProvider,
-    "BigPlayerLLMRoot": BigPlayerLLMRoot,
+    "BigPlayerNaturalLanguageRoot": BigPlayerNaturalLanguageRoot,
     "BigPlayerBasicPrompt": BigPlayerBasicPrompt,
     "BigPlayerSplitPrompt": BigPlayerSplitPrompt,
     "BigPlayerKSamplerConfig": BigPlayerKSamplerConfig,
@@ -270,7 +270,7 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "BigPlayerLLMProvider": "BigPlayer LLM Provider",
-    "BigPlayerLLMRoot": "BigPlayer LLM Root",
+    "BigPlayerNaturalLanguageRoot": "BigPlayer Natural Language Root",
     "BigPlayerBasicPrompt": "BigPlayer Basic Prompt",
     "BigPlayerSplitPrompt": "BigPlayer Split Prompt",
     "BigPlayerKSamplerConfig": "BigPlayer KSampler Config",

@@ -25,7 +25,7 @@ IMAGE_TAG = "bigplayer-comfyui-integration:" + hashlib.blake2b(
 ).hexdigest()
 REQUIRED_NODES = {
     "BigPlayerLLMProvider",
-    "BigPlayerLLMRoot",
+    "BigPlayerNaturalLanguageRoot",
     "BigPlayerBasicPrompt",
     "BigPlayerSplitPrompt",
     "BigPlayerKSamplerConfig",

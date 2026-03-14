@@ -20,7 +20,7 @@ def test_root_loader_supports_comfyui_style_import():
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         assert "BigPlayerLLMProvider" in module.NODE_CLASS_MAPPINGS
-        assert "BigPlayerLLMRoot" in module.NODE_CLASS_MAPPINGS
+        assert "BigPlayerNaturalLanguageRoot" in module.NODE_CLASS_MAPPINGS
         assert "BigPlayerBasicPrompt" in module.NODE_CLASS_MAPPINGS
         assert module.WEB_DIRECTORY == "web"
         print("ok")

@@ -2,7 +2,7 @@
 
 Reads the `split_prompt` portion of a shared structured LLM response.
 
-This node does not call the provider directly. It consumes the shared `session` emitted by `BigPlayer LLM Root`. The root discovers this module, asks the provider for the `split_prompt` capability, and validates the combined response before this node reads its own slice.
+This node does not call the provider directly. It consumes the shared `session` emitted by `BigPlayer Natural Language Root`. The root discovers this module, asks the provider for the `split_prompt` capability, and validates the combined response before this node reads its own slice.
 
 Input:
 - `session`

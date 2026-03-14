@@ -95,7 +95,9 @@ class PromptGenerationService:
             if CAPABILITY_DEFINITIONS[capability_id].produces_output
         }
         if not output_configs:
-            raise ProviderError("LLM Root requires at least one attached output module before calling the provider.")
+            raise ProviderError(
+                "Natural Language Root requires at least one attached output module before calling the provider."
+            )
 
         cache_key = self._build_cache_key(prose, provider_bundle, capability_configs)
         session_handle = LLMSessionHandle(
@@ -192,10 +194,10 @@ class PromptGenerationService:
 
     def _discover_capabilities(self, dynprompt: Any, root_node_id: str) -> list[CapabilityInstance]:
         if dynprompt is None:
-            raise ProviderError("LLM Root requires workflow metadata to discover attached modules.")
+            raise ProviderError("Natural Language Root requires workflow metadata to discover attached modules.")
         prompt = dynprompt.get_original_prompt()
         if not isinstance(prompt, dict):
-            raise ProviderError("LLM Root could not inspect the workflow graph.")
+            raise ProviderError("Natural Language Root could not inspect the workflow graph.")
 
         discovered: list[CapabilityInstance] = []
         for node_id, node in prompt.items():
@@ -231,7 +233,7 @@ class PromptGenerationService:
             existing = consolidated.get(instance.capability_id)
             if existing is not None and existing != instance.normalized_config:
                 raise ProviderError(
-                    f"Conflicting `{instance.capability_id}` modules are attached to the same LLM Root."
+                    f"Conflicting `{instance.capability_id}` modules are attached to the same Natural Language Root."
                 )
             if existing is None:
                 consolidated[instance.capability_id] = CAPABILITY_DEFINITIONS[instance.capability_id].resolve_config(

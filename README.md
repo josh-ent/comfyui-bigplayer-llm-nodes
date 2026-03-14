@@ -30,7 +30,7 @@ This is an **LLM-assisted** system. Prompt transformation and selection logic ar
 
 The current workflow shape is:
 
-`BigPlayer LLM Provider` -> `BigPlayer LLM Root` -> one or more module nodes
+`BigPlayer LLM Provider` -> `BigPlayer Natural Language Root` -> one or more module nodes
 
 The root discovers attached modules, builds one provider request, validates one structured response, and publishes a shared session. Each module reads only its own validated result slice.
 
@@ -48,7 +48,7 @@ Provides:
 Outputs:
 - `provider_config`
 
-#### 2. BigPlayer LLM Root
+#### 2. BigPlayer Natural Language Root
 
 Takes:
 - `prose`

@@ -23,7 +23,7 @@ def build_modular_workflow(provider_base_url: str) -> dict:
             },
         },
         "2": {
-            "class_type": "BigPlayerLLMRoot",
+            "class_type": "BigPlayerNaturalLanguageRoot",
             "inputs": {
                 "prose": "A cinematic portrait of a cat in a film still.",
                 "provider_config": ["1", 0],
@@ -96,7 +96,7 @@ def build_no_provider_basic_workflow(provider_model: str, prose: str) -> dict:
             },
         },
         "2": {
-            "class_type": "BigPlayerLLMRoot",
+            "class_type": "BigPlayerNaturalLanguageRoot",
             "inputs": {
                 "prose": prose,
                 "provider_config": ["1", 0],
@@ -132,7 +132,7 @@ def build_duplicate_prompt_workflow(provider_base_url: str) -> dict:
             },
         },
         "2": {
-            "class_type": "BigPlayerLLMRoot",
+            "class_type": "BigPlayerNaturalLanguageRoot",
             "inputs": {
                 "prose": "A cinematic portrait of a cat in a film still.",
                 "provider_config": ["1", 0],
@@ -178,7 +178,7 @@ def build_multi_root_workflow(provider_base_url: str) -> dict:
             },
         },
         "2": {
-            "class_type": "BigPlayerLLMRoot",
+            "class_type": "BigPlayerNaturalLanguageRoot",
             "inputs": {
                 "prose": "A cinematic portrait of a cat in a film still.",
                 "provider_config": ["1", 0],
@@ -197,7 +197,7 @@ def build_multi_root_workflow(provider_base_url: str) -> dict:
             },
         },
         "5": {
-            "class_type": "BigPlayerLLMRoot",
+            "class_type": "BigPlayerNaturalLanguageRoot",
             "inputs": {
                 "prose": "A dramatic portrait of a dog in rain.",
                 "provider_config": ["1", 0],

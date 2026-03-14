@@ -2,7 +2,7 @@ const { expect, test } = require("@playwright/test");
 
 const expectedNodes = [
   ["BigPlayerLLMProvider", "BigPlayer LLM Provider"],
-  ["BigPlayerLLMRoot", "BigPlayer LLM Root"],
+  ["BigPlayerNaturalLanguageRoot", "BigPlayer Natural Language Root"],
   ["BigPlayerBasicPrompt", "BigPlayer Basic Prompt"],
   ["BigPlayerSplitPrompt", "BigPlayer Split Prompt"],
   ["BigPlayerKSamplerConfig", "BigPlayer KSampler Config"],
