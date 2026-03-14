@@ -111,37 +111,38 @@ This module contributes extra context to the provider request but does not expos
 
 ## Development setup
 
-Create and use the project-local virtual environment before doing any work:
+Create and activate a project-local virtual environment before doing any work, then install the repo's Python dependencies:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip setuptools wheel
-.venv/bin/python -m pip install -r .integration/ComfyUI/requirements.txt
-.venv/bin/python -m pip install -e .[dev]
+python -m venv .venv
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -e .[dev]
 ```
 
-This repository also keeps a local ComfyUI checkout at `.integration/ComfyUI` for integration testing. The working tree is symlinked into that checkout's `custom_nodes` directory so tests exercise the current source directly.
+Integration tests no longer depend on an untracked local ComfyUI checkout. They build a pinned ComfyUI Docker image on first use and mount the current working tree into the container's `custom_nodes` directory so tests always exercise the current source directly.
+
+Container prerequisites:
+- Docker Desktop or another local Docker runtime must be available.
+- The first integration run will build the pinned ComfyUI test image, so it takes longer than subsequent runs.
 
 ## Testing
 
 Run the default unit suite:
 
 ```bash
-.venv/bin/pytest tests/unit
+python -m pytest tests/unit
 ```
 
 Run the mocked ComfyUI integration suite:
 
 ```bash
-.venv/bin/pytest tests/integration -m integration
+python -m pytest tests/integration -m integration
 ```
 
-Run opt-in real Grok validation:
+Run opt-in real Grok validation after setting `BIGPLAYER_GROK_LIVE_TEST=1` and `BIGPLAYER_GROK_API_KEY` in your shell environment:
 
 ```bash
-BIGPLAYER_GROK_LIVE_TEST=1 \
-BIGPLAYER_GROK_API_KEY=... \
-.venv/bin/pytest tests/unit/test_live_provider.py -m live
+python -m pytest tests/unit/test_live_provider.py -m live
 ```
 
 ## Composition model

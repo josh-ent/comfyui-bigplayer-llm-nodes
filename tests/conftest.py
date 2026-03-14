@@ -6,7 +6,6 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-COMFY_ROOT = REPO_ROOT / ".integration" / "ComfyUI"
 
 
 def pytest_configure(config):
@@ -16,9 +15,6 @@ def pytest_configure(config):
 
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-if COMFY_ROOT.exists() and str(COMFY_ROOT) not in sys.path:
-    sys.path.insert(0, str(COMFY_ROOT))
 
 os.environ.setdefault("PYTHONPATH", str(REPO_ROOT))
 

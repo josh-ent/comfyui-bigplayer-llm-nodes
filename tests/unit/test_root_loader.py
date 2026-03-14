@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import textwrap
 
 
@@ -28,7 +29,7 @@ def test_root_loader_supports_comfyui_style_import():
 
     result = subprocess.run(
         [sys.executable, "-c", script],
-        cwd="/tmp",
+        cwd=tempfile.gettempdir(),
         capture_output=True,
         text=True,
         check=True,

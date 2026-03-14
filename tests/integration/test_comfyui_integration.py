@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import hashlib
 import http.server
 import json
 from pathlib import Path
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 
 import pytest
 
@@ -17,9 +20,23 @@ import pytest
 pytestmark = pytest.mark.integration
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-COMFY_ROOT = REPO_ROOT / ".integration" / "ComfyUI"
 SUPPORT_NODE_DIR = REPO_ROOT / "tests" / "support_nodes" / "model_stub_pack"
-SUPPORT_LINK = COMFY_ROOT / "custom_nodes" / "bigplayer-test-support"
+DOCKERFILE_PATH = REPO_ROOT / "tests" / "integration" / "comfyui" / "Dockerfile"
+COMFYUI_REF = "v0.16.4"
+IMAGE_TAG = "bigplayer-comfyui-integration:" + hashlib.blake2b(
+    (COMFYUI_REF + DOCKERFILE_PATH.read_text(encoding="utf-8")).encode("utf-8"),
+    digest_size=8,
+).hexdigest()
+REQUIRED_NODES = {
+    "BigPlayerLLMProvider",
+    "BigPlayerLLMRoot",
+    "BigPlayerBasicPrompt",
+    "BigPlayerKSamplerConfig",
+    "BigPlayerCheckpointPicker",
+    "BigPlayerTestSink",
+    "BigPlayerTestPairSink",
+    "BigPlayerTestKSamplerSink",
+}
 
 
 def _find_free_port() -> int:
@@ -54,81 +71,94 @@ def mock_provider_server(responder):
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield f"http://127.0.0.1:{port}/v1"
+        yield f"http://host.docker.internal:{port}/v1"
     finally:
         server.shutdown()
         thread.join(timeout=5)
 
 
-@contextmanager
-def comfy_server():
-    SUPPORT_LINK.unlink(missing_ok=True)
-    SUPPORT_LINK.symlink_to(SUPPORT_NODE_DIR)
-    port = _find_free_port()
-    proc = subprocess.Popen(
-        [
-            str(REPO_ROOT / ".venv" / "bin" / "python"),
-            "main.py",
-            "--listen",
-            "127.0.0.1",
-            "--port",
-            str(port),
-            "--cpu",
-            "--disable-auto-launch",
-            "--disable-api-nodes",
-            "--base-directory",
-            str(COMFY_ROOT),
-        ],
-        cwd=COMFY_ROOT,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+def _docker(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["docker", *args],
+        capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=check,
     )
-    try:
-        started = False
-        deadline = time.time() + 60
-        while time.time() < deadline:
-            try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{port}/object_info", timeout=2) as response:
-                    payload = json.loads(response.read())
-                    required_nodes = {
-                        "BigPlayerLLMProvider",
-                        "BigPlayerLLMRoot",
-                        "BigPlayerBasicPrompt",
-                        "BigPlayerKSamplerConfig",
-                        "BigPlayerCheckpointPicker",
-                        "BigPlayerTestSink",
-                        "BigPlayerTestPairSink",
-                        "BigPlayerTestKSamplerSink",
-                    }
-                    if required_nodes.issubset(payload):
-                        started = True
-                        break
-            except Exception:
-                time.sleep(1)
-        if not started:
-            output = ""
-            if proc.stdout is not None:
-                output = proc.stdout.read()
-            raise RuntimeError(f"ComfyUI server did not start successfully.\n{output}")
 
-        yield port
-    finally:
-        proc.kill()
-        proc.wait(timeout=10)
-        SUPPORT_LINK.unlink(missing_ok=True)
+
+def ensure_test_image() -> None:
+    image_check = _docker("image", "inspect", IMAGE_TAG, check=False)
+    if image_check.returncode == 0:
+        return
+
+    _docker(
+        "build",
+        "--build-arg",
+        f"COMFYUI_REF={COMFYUI_REF}",
+        "-t",
+        IMAGE_TAG,
+        "-f",
+        str(DOCKERFILE_PATH),
+        str(DOCKERFILE_PATH.parent),
+    )
 
 
 @contextmanager
-def temp_checkpoint(name: str = "sdxl-base-1.0.safetensors"):
-    checkpoint_dir = COMFY_ROOT / "models" / "checkpoints"
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    checkpoint_path = checkpoint_dir / name
-    checkpoint_path.touch()
-    try:
-        yield checkpoint_path.name
-    finally:
-        checkpoint_path.unlink(missing_ok=True)
+def comfy_server(*, checkpoints: tuple[str, ...] = ()):
+    ensure_test_image()
+    port = _find_free_port()
+    container_name = f"bigplayer-comfyui-{uuid.uuid4().hex[:8]}"
+
+    with tempfile.TemporaryDirectory(prefix="bigplayer-comfyui-runtime-") as runtime_root:
+        runtime_path = Path(runtime_root)
+        checkpoint_dir = runtime_path / "models" / "checkpoints"
+        custom_nodes_dir = runtime_path / "custom_nodes"
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        custom_nodes_dir.mkdir(parents=True, exist_ok=True)
+        for checkpoint_name in checkpoints:
+            (checkpoint_dir / checkpoint_name).touch()
+
+        _docker(
+            "run",
+            "--rm",
+            "--detach",
+            "--name",
+            container_name,
+            "--add-host",
+            "host.docker.internal:host-gateway",
+            "--publish",
+            f"127.0.0.1:{port}:8188",
+            "--mount",
+            f"type=bind,src={REPO_ROOT},dst=/opt/bigplayer/runtime/custom_nodes/comfyui-bigplayer-llm-nodes,readonly",
+            "--mount",
+            f"type=bind,src={SUPPORT_NODE_DIR},dst=/opt/bigplayer/runtime/custom_nodes/bigplayer-test-support,readonly",
+            "--mount",
+            f"type=bind,src={runtime_path},dst=/opt/bigplayer/runtime",
+            IMAGE_TAG,
+        )
+
+        try:
+            started = False
+            deadline = time.time() + 90
+            while time.time() < deadline:
+                try:
+                    with urllib.request.urlopen(f"http://127.0.0.1:{port}/object_info", timeout=2) as response:
+                        payload = json.loads(response.read())
+                        if REQUIRED_NODES.issubset(payload):
+                            started = True
+                            break
+                except Exception:
+                    time.sleep(1)
+
+            if not started:
+                logs = _docker("logs", container_name, check=False)
+                raise RuntimeError(f"ComfyUI container did not start successfully.\n{logs.stdout}{logs.stderr}")
+
+            yield port
+        finally:
+            _docker("stop", "--time", "5", container_name, check=False)
 
 
 def queue_prompt(port: int, prompt: dict) -> str:
@@ -401,20 +431,19 @@ def test_modular_nodes_execute_in_comfyui_with_one_provider_call():
             ]
         }
 
-    with temp_checkpoint():
-        with mock_provider_server(responder) as provider_base_url:
-            with comfy_server() as port:
-                prompt_id = queue_prompt(port, build_modular_workflow(provider_base_url))
-                history = wait_for_history(port, prompt_id)
-                assert calls["count"] == 1
-                basic_output = history["outputs"]["6"]
-                ksampler_output = history["outputs"]["7"]
-                checkpoint_output = history["outputs"]["8"]
-                assert basic_output["value_1"][0] == "cinematic cat portrait, shallow depth of field"
-                assert basic_output["value_3"][0].startswith("Used the model context")
-                assert ksampler_output["value_1"][0] == 28
-                assert ksampler_output["value_3"][0] == "euler"
-                assert checkpoint_output["value_1"][0] == "sdxl-base-1.0.safetensors"
+    with mock_provider_server(responder) as provider_base_url:
+        with comfy_server(checkpoints=("sdxl-base-1.0.safetensors",)) as port:
+            prompt_id = queue_prompt(port, build_modular_workflow(provider_base_url))
+            history = wait_for_history(port, prompt_id)
+            assert calls["count"] == 1
+            basic_output = history["outputs"]["6"]
+            ksampler_output = history["outputs"]["7"]
+            checkpoint_output = history["outputs"]["8"]
+            assert basic_output["value_1"][0] == "cinematic cat portrait, shallow depth of field"
+            assert basic_output["value_3"][0].startswith("Used the model context")
+            assert ksampler_output["value_1"][0] == 28
+            assert ksampler_output["value_3"][0] == "euler"
+            assert checkpoint_output["value_1"][0] == "sdxl-base-1.0.safetensors"
 
 
 def test_duplicate_prompt_modules_share_one_provider_call():
