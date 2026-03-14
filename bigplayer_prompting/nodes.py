@@ -5,6 +5,9 @@ from .capabilities import (
     CHECKPOINT_PICKER_CAPABILITY,
     KSAMPLER_CONFIG_CAPABILITY,
     SPLIT_PROMPT_CAPABILITY,
+    list_available_checkpoints,
+    list_sampler_names,
+    list_scheduler_names,
 )
 from .errors import BigPlayerError
 from .provider import REGISTERED_PROVIDERS, list_models, list_provider_ids, provider_model_map
@@ -13,6 +16,9 @@ from .status import ComfyStatusReporter
 
 
 _SERVICE = PromptGenerationService()
+_SAMPLER_NAME_OUTPUT_TYPE = list_sampler_names()
+_SCHEDULER_OUTPUT_TYPE = list_scheduler_names()
+_CHECKPOINT_NAME_OUTPUT_TYPE = list_available_checkpoints()
 
 
 def _validate_provider_inputs(api_key: str, provider: str, provider_model: str) -> bool | str:
@@ -197,7 +203,7 @@ class BigPlayerSplitPrompt(_BaseSessionModule):
 
 class BigPlayerKSamplerConfig(_BaseSessionModule):
     DESCRIPTION = "Read structured KSampler settings from the shared LLM session."
-    RETURN_TYPES = ("INT", "FLOAT", "STRING", "STRING", "FLOAT", "STRING")
+    RETURN_TYPES = ("INT", "FLOAT", _SAMPLER_NAME_OUTPUT_TYPE, _SCHEDULER_OUTPUT_TYPE, "FLOAT", "STRING")
     RETURN_NAMES = ("steps", "cfg", "sampler_name", "scheduler", "denoise", "comments")
     FUNCTION = "read"
 
@@ -219,7 +225,7 @@ class BigPlayerKSamplerConfig(_BaseSessionModule):
 
 class BigPlayerCheckpointPicker(_BaseSessionModule):
     DESCRIPTION = "Read structured checkpoint selection from the shared LLM session."
-    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_TYPES = (_CHECKPOINT_NAME_OUTPUT_TYPE, "STRING")
     RETURN_NAMES = ("checkpoint_name", "comments")
     FUNCTION = "read"
 

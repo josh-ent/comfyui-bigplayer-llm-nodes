@@ -85,7 +85,7 @@ class BigPlayerTestPairSink:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "value_1": ("STRING", {"forceInput": True}),
+                "value_1": ("COMBO", {"forceInput": True}),
                 "value_2": ("STRING", {"forceInput": True}),
             }
         }
@@ -113,8 +113,8 @@ class BigPlayerTestKSamplerSink:
             "required": {
                 "value_1": ("INT", {"forceInput": True}),
                 "value_2": ("FLOAT", {"forceInput": True}),
-                "value_3": ("STRING", {"forceInput": True}),
-                "value_4": ("STRING", {"forceInput": True}),
+                "value_3": ("COMBO", {"forceInput": True}),
+                "value_4": ("COMBO", {"forceInput": True}),
                 "value_5": ("FLOAT", {"forceInput": True}),
                 "value_6": ("STRING", {"forceInput": True}),
             }
