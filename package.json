@@ -1,0 +1,12 @@
+{
+  "name": "comfyui-bigplayer-llm-nodes",
+  "private": true,
+  "scripts": {
+    "test:integration": "python -m pytest tests/integration -m integration",
+    "test:ui": "playwright test",
+    "test:full": "npm run test:integration && npm run test:ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

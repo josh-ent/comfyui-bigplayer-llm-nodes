@@ -117,6 +117,8 @@ Create and activate a project-local virtual environment before doing any work, t
 python -m venv .venv
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -e .[dev]
+npm install
+npx playwright install chromium
 ```
 
 Integration tests no longer depend on an untracked local ComfyUI checkout. They build a pinned ComfyUI Docker image on first use and mount the current working tree into the container's `custom_nodes` directory so tests always exercise the current source directly.
@@ -137,6 +139,18 @@ Run the mocked ComfyUI integration suite:
 
 ```bash
 python -m pytest tests/integration -m integration
+```
+
+Run the Playwright UI suite against the same Docker-backed ComfyUI test runtime:
+
+```bash
+npm run test:ui
+```
+
+Run the full integration pass:
+
+```bash
+npm run test:full
 ```
 
 Run opt-in real Grok validation after setting `BIGPLAYER_GROK_LIVE_TEST=1` and `BIGPLAYER_GROK_API_KEY` in your shell environment:
