@@ -11,11 +11,8 @@ def test_no_provider_positive_routes_to_basic_prompt():
         PromptGenerationOperation(
             prose="bright red apple",
             context_blocks=(),
-            capability_instructions=(),
             requested_capabilities=(BASIC_PROMPT_CAPABILITY,),
             capability_configs={BASIC_PROMPT_CAPABILITY: {}},
-            response_schema_name="simple",
-            response_schema={},
         ),
         ProviderConfig(provider="No Provider", provider_model="Positive", api_key=""),
     )
@@ -33,11 +30,8 @@ def test_no_provider_negative_routes_to_split_prompt():
         PromptGenerationOperation(
             prose="washed out",
             context_blocks=(),
-            capability_instructions=(),
             requested_capabilities=(SPLIT_PROMPT_CAPABILITY,),
             capability_configs={SPLIT_PROMPT_CAPABILITY: {}},
-            response_schema_name="split",
-            response_schema={},
         ),
         ProviderConfig(provider="No Provider", provider_model="Negative", api_key=""),
     )

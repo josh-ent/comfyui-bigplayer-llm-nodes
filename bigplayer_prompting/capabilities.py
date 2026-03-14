@@ -104,106 +104,7 @@ def _validate_model(model_cls: type[BaseModel], payload: dict[str, Any]) -> Base
         raise MalformedProviderResponseError(f"Provider response failed schema validation: {exc}") from exc
 
 
-def _basic_prompt_schema(_: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["positive_prompt", "negative_prompt", "comments"],
-        "properties": {
-            "positive_prompt": {"type": "string"},
-            "negative_prompt": {"type": "string"},
-            "comments": {"type": "string"},
-        },
-    }
-
-
-def _split_prompt_schema(_: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "required": [
-            "text_l_positive",
-            "text_g_positive",
-            "text_l_negative",
-            "text_g_negative",
-            "comments",
-        ],
-        "properties": {
-            "text_l_positive": {"type": "string"},
-            "text_g_positive": {"type": "string"},
-            "text_l_negative": {"type": "string"},
-            "text_g_negative": {"type": "string"},
-            "comments": {"type": "string"},
-        },
-    }
-
-
-def _ksampler_schema(config: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["steps", "cfg", "sampler_name", "scheduler", "denoise", "comments"],
-        "properties": {
-            "steps": {"type": "integer", "minimum": 1, "maximum": 10000},
-            "cfg": {"type": "number", "minimum": 0.0, "maximum": 100.0},
-            "sampler_name": {"type": "string", "enum": config["sampler_names"]},
-            "scheduler": {"type": "string", "enum": config["scheduler_names"]},
-            "denoise": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-            "comments": {"type": "string"},
-        },
-    }
-
-
-def _checkpoint_schema(config: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["checkpoint_name", "comments"],
-        "properties": {
-            "checkpoint_name": {"type": "string", "enum": config["available_checkpoints"]},
-            "comments": {"type": "string"},
-        },
-    }
-
-
-def _basic_prompt_instruction(_: dict[str, Any]) -> str:
-    return (
-        "Capability `basic_prompt`:\n"
-        "- Return `positive_prompt`, `negative_prompt`, and `comments`.\n"
-        "- Keep prompts concise, specific, and directly usable.\n"
-        "- Negative prompts should omit unwanted content instead of explaining policy."
-    )
-
-
-def _split_prompt_instruction(_: dict[str, Any]) -> str:
-    return (
-        "Capability `split_prompt`:\n"
-        "- Return `text_l_positive`, `text_g_positive`, `text_l_negative`, `text_g_negative`, and `comments`.\n"
-        "- Separate local subject/content cues from broader global/style cues when possible.\n"
-        "- Do not duplicate the full positive prompt into both channels unless that fallback is necessary and noted in comments."
-    )
-
-
-def _ksampler_instruction(config: dict[str, Any]) -> str:
-    return (
-        "Capability `ksampler_config`:\n"
-        "- Choose `steps`, `cfg`, `sampler_name`, `scheduler`, `denoise`, and `comments` for a standard ComfyUI KSampler.\n"
-        f"- Allowed sampler names: {', '.join(config['sampler_names'])}\n"
-        f"- Allowed scheduler names: {', '.join(config['scheduler_names'])}\n"
-        "- Prefer practical, workflow-ready defaults consistent with the user's prose."
-    )
-
-
-def _checkpoint_instruction(config: dict[str, Any]) -> str:
-    choices = ", ".join(config["available_checkpoints"])
-    return (
-        "Capability `checkpoint_picker`:\n"
-        "- Choose exactly one checkpoint from the allowed list and explain the choice in `comments`.\n"
-        f"- Allowed checkpoints: {choices}"
-    )
-
-
-def _model_context_instruction(config: dict[str, Any]) -> str:
+def model_context_to_text(config: dict[str, Any]) -> str:
     text = config["model_context"].strip()
     if not text:
         return ""
@@ -283,8 +184,6 @@ class CapabilityDefinition:
     produces_output: bool
     normalize_config: Callable[[dict[str, Any]], dict[str, Any]]
     resolve_config: Callable[[dict[str, Any]], dict[str, Any]]
-    build_prompt: Callable[[dict[str, Any]], str]
-    build_schema: Callable[[dict[str, Any]], dict[str, Any] | None]
     validate_payload: Callable[[dict[str, Any], dict[str, Any]], BaseModel]
 
 
@@ -295,8 +194,6 @@ CAPABILITY_DEFINITIONS: dict[str, CapabilityDefinition] = {
         produces_output=True,
         normalize_config=_normalize_empty,
         resolve_config=_resolve_empty,
-        build_prompt=_basic_prompt_instruction,
-        build_schema=_basic_prompt_schema,
         validate_payload=_validate_basic_prompt,
     ),
     SPLIT_PROMPT_CAPABILITY: CapabilityDefinition(
@@ -305,8 +202,6 @@ CAPABILITY_DEFINITIONS: dict[str, CapabilityDefinition] = {
         produces_output=True,
         normalize_config=_normalize_empty,
         resolve_config=_resolve_empty,
-        build_prompt=_split_prompt_instruction,
-        build_schema=_split_prompt_schema,
         validate_payload=_validate_split_prompt,
     ),
     KSAMPLER_CONFIG_CAPABILITY: CapabilityDefinition(
@@ -315,8 +210,6 @@ CAPABILITY_DEFINITIONS: dict[str, CapabilityDefinition] = {
         produces_output=True,
         normalize_config=_normalize_empty,
         resolve_config=_resolve_ksampler,
-        build_prompt=_ksampler_instruction,
-        build_schema=_ksampler_schema,
         validate_payload=_validate_ksampler,
     ),
     CHECKPOINT_PICKER_CAPABILITY: CapabilityDefinition(
@@ -325,8 +218,6 @@ CAPABILITY_DEFINITIONS: dict[str, CapabilityDefinition] = {
         produces_output=True,
         normalize_config=_normalize_empty,
         resolve_config=_resolve_checkpoint,
-        build_prompt=_checkpoint_instruction,
-        build_schema=_checkpoint_schema,
         validate_payload=_validate_checkpoint,
     ),
     MODEL_CONTEXT_CAPABILITY: CapabilityDefinition(
@@ -335,8 +226,6 @@ CAPABILITY_DEFINITIONS: dict[str, CapabilityDefinition] = {
         produces_output=False,
         normalize_config=_normalize_model_context,
         resolve_config=_resolve_empty,
-        build_prompt=_model_context_instruction,
-        build_schema=lambda config: None,
         validate_payload=_validate_unused_payload,
     ),
 }

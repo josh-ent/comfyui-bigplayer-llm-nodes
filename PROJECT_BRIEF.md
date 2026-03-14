@@ -1,5 +1,17 @@
 # Prompt Node Project Brief
 
+## Implementation note
+
+This brief describes the original phase ordering and product intent.
+
+The current implementation has since moved to a provider/root/module architecture:
+- one provider node builds provider config;
+- one root node performs a single LLM call for all attached modules;
+- module nodes expose individual outputs from the shared validated response;
+- provider adapters own prompt fragment text and provider-facing schema composition.
+
+Treat the remainder of this document as the original delivery brief rather than a line-by-line description of the current node surface.
+
 ## Purpose
 
 This repository will implement a ComfyUI extension that uses an LLM to transform user prose into structured prompts suitable for image and video generation workflows.

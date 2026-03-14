@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
+from ..capabilities import (
+    BASIC_PROMPT_CAPABILITY,
+    CHECKPOINT_PICKER_CAPABILITY,
+    KSAMPLER_CONFIG_CAPABILITY,
+    SPLIT_PROMPT_CAPABILITY,
+)
 from ..errors import MalformedProviderResponseError, ProviderError, UnsupportedOperationError
 from ..operations import OperationKind, PromptGenerationOperation
 from ..provider import InvocationContext, ProviderConfig, redact_secret
@@ -56,6 +62,142 @@ class RenderedXAIRequest:
                 }
             },
         }
+
+
+@dataclass(frozen=True)
+class XAIFragmentDefinition:
+    capability_id: str
+    schema_name: str
+    build_schema: Callable[[dict[str, Any]], dict[str, Any]]
+    build_prompt: Callable[[dict[str, Any]], str]
+
+
+def _basic_prompt_schema(_: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["positive_prompt", "negative_prompt", "comments"],
+        "properties": {
+            "positive_prompt": {"type": "string"},
+            "negative_prompt": {"type": "string"},
+            "comments": {"type": "string"},
+        },
+    }
+
+
+def _split_prompt_schema(_: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "text_l_positive",
+            "text_g_positive",
+            "text_l_negative",
+            "text_g_negative",
+            "comments",
+        ],
+        "properties": {
+            "text_l_positive": {"type": "string"},
+            "text_g_positive": {"type": "string"},
+            "text_l_negative": {"type": "string"},
+            "text_g_negative": {"type": "string"},
+            "comments": {"type": "string"},
+        },
+    }
+
+
+def _ksampler_schema(config: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["steps", "cfg", "sampler_name", "scheduler", "denoise", "comments"],
+        "properties": {
+            "steps": {"type": "integer", "minimum": 1, "maximum": 10000},
+            "cfg": {"type": "number", "minimum": 0.0, "maximum": 100.0},
+            "sampler_name": {"type": "string", "enum": config["sampler_names"]},
+            "scheduler": {"type": "string", "enum": config["scheduler_names"]},
+            "denoise": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+            "comments": {"type": "string"},
+        },
+    }
+
+
+def _checkpoint_schema(config: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["checkpoint_name", "comments"],
+        "properties": {
+            "checkpoint_name": {"type": "string", "enum": config["available_checkpoints"]},
+            "comments": {"type": "string"},
+        },
+    }
+
+
+def _basic_prompt_fragment(_: dict[str, Any]) -> str:
+    return (
+        "Capability `basic_prompt`:\n"
+        "- Return `positive_prompt`, `negative_prompt`, and `comments`.\n"
+        "- Positive prompts should be concise, specific, and workflow-ready.\n"
+        "- Negative prompts should list unwanted content rather than explain policy."
+    )
+
+
+def _split_prompt_fragment(_: dict[str, Any]) -> str:
+    return (
+        "Capability `split_prompt`:\n"
+        "- Return `text_l_positive`, `text_g_positive`, `text_l_negative`, `text_g_negative`, and `comments`.\n"
+        "- `text_l_*` should focus on local subject/content details.\n"
+        "- `text_g_*` should focus on broader mood, composition, and global styling.\n"
+        "- Do not duplicate the full positive prompt into both positive channels unless you explicitly note the fallback in comments."
+    )
+
+
+def _ksampler_fragment(config: dict[str, Any]) -> str:
+    return (
+        "Capability `ksampler_config`:\n"
+        "- Return `steps`, `cfg`, `sampler_name`, `scheduler`, `denoise`, and `comments` for a standard ComfyUI KSampler.\n"
+        f"- Allowed sampler names: {', '.join(config['sampler_names'])}\n"
+        f"- Allowed scheduler names: {', '.join(config['scheduler_names'])}\n"
+        "- Choose practical settings that match the user's request."
+    )
+
+
+def _checkpoint_fragment(config: dict[str, Any]) -> str:
+    return (
+        "Capability `checkpoint_picker`:\n"
+        "- Return `checkpoint_name` and `comments`.\n"
+        "- Choose exactly one checkpoint from the allowed list.\n"
+        f"- Allowed checkpoints: {', '.join(config['available_checkpoints'])}"
+    )
+
+
+XAI_FRAGMENT_REGISTRY: dict[str, XAIFragmentDefinition] = {
+    BASIC_PROMPT_CAPABILITY: XAIFragmentDefinition(
+        capability_id=BASIC_PROMPT_CAPABILITY,
+        schema_name="basic_prompt",
+        build_schema=_basic_prompt_schema,
+        build_prompt=_basic_prompt_fragment,
+    ),
+    SPLIT_PROMPT_CAPABILITY: XAIFragmentDefinition(
+        capability_id=SPLIT_PROMPT_CAPABILITY,
+        schema_name="split_prompt",
+        build_schema=_split_prompt_schema,
+        build_prompt=_split_prompt_fragment,
+    ),
+    KSAMPLER_CONFIG_CAPABILITY: XAIFragmentDefinition(
+        capability_id=KSAMPLER_CONFIG_CAPABILITY,
+        schema_name="ksampler_config",
+        build_schema=_ksampler_schema,
+        build_prompt=_ksampler_fragment,
+    ),
+    CHECKPOINT_PICKER_CAPABILITY: XAIFragmentDefinition(
+        capability_id=CHECKPOINT_PICKER_CAPABILITY,
+        schema_name="checkpoint_picker",
+        build_schema=_checkpoint_schema,
+        build_prompt=_checkpoint_fragment,
+    ),
+}
 
 
 class XAIProvider:
@@ -141,6 +283,8 @@ class XAIProvider:
         operation: PromptGenerationOperation,
         config: ProviderConfig,
     ) -> RenderedXAIRequest:
+        response_schema = self._build_response_schema(operation)
+        capability_instructions = self._build_capability_instructions(operation)
         system_prompt = """You convert user prose into structured, production-ready ComfyUI workflow data.
 
 You are not allowed to invent deterministic local logic that the node does not have.
@@ -158,7 +302,7 @@ Every capability object must include concise comments explaining the main decisi
         sections.append(f"Requested output capabilities:\n{', '.join(operation.requested_capabilities)}")
         sections.append(
             "Capability requirements:\n"
-            + "\n\n".join(instruction.strip() for instruction in operation.capability_instructions if instruction.strip())
+            + "\n\n".join(instruction.strip() for instruction in capability_instructions if instruction.strip())
         )
         sections.append(
             "Global requirements:\n"
@@ -172,9 +316,36 @@ Every capability object must include concise comments explaining the main decisi
             model=config.provider_model,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            schema_name=operation.response_schema_name,
-            schema=operation.response_schema,
+            schema_name="bigplayer_modular_llm_result",
+            schema=response_schema,
         )
+
+    def _build_response_schema(self, operation: PromptGenerationOperation) -> dict[str, Any]:
+        properties: dict[str, Any] = {}
+        required: list[str] = []
+        for capability_id in operation.requested_capabilities:
+            fragment = self._fragment(capability_id)
+            properties[fragment.schema_name] = fragment.build_schema(operation.capability_configs[capability_id])
+            required.append(fragment.schema_name)
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": required,
+            "properties": properties,
+        }
+
+    def _build_capability_instructions(self, operation: PromptGenerationOperation) -> list[str]:
+        instructions: list[str] = []
+        for capability_id in operation.requested_capabilities:
+            fragment = self._fragment(capability_id)
+            instructions.append(fragment.build_prompt(operation.capability_configs[capability_id]))
+        return instructions
+
+    def _fragment(self, capability_id: str) -> XAIFragmentDefinition:
+        fragment = XAI_FRAGMENT_REGISTRY.get(capability_id)
+        if fragment is None:
+            raise UnsupportedOperationError(f"xAI provider does not support capability `{capability_id}`.")
+        return fragment
 
     def _read_response_body(self, response: httpx.Response, context: InvocationContext) -> dict[str, Any]:
         content_type = response.headers.get("content-type", "").lower()

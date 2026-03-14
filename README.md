@@ -1,47 +1,113 @@
 # ComfyUI LLM Prompt Nodes
 
-A ComfyUI extension for LLM-assisted prompt generation, LoRA recommendation, and iterative prompt refinement.
+A ComfyUI extension for single-call, modular, LLM-assisted prompt and workflow configuration.
 
-This project converts freeform user prose into structured prompts for image and video generation workflows using an external LLM provider. Initial provider support targets **Grok**, but the architecture is intended to support additional providers later.
+This project converts freeform user prose into structured prompt and workflow data for image generation pipelines using an external LLM provider. Initial provider support targets **Grok/xAI**, but the architecture is intended to support additional providers with their own prompt style and schema-fragment handling.
 
 ## Status
 
-Phase 1 scaffold implemented.
+Modular root-plus-module scaffold implemented.
 
 Current project focus:
-- Phase 1: prose to prompts
+- provider/root/module prompt architecture
 - Grok provider integration
-- simple and split prompt output nodes under `BigPlayer/Prompting`
+- provider-owned prompt/schema composition
+- modular output nodes under `BigPlayer/Prompting`
 - strict schema-bound structured outputs
 - deterministic caching option for repeatable workflows
 
 ## What this project does
 
 This extension is intended to provide ComfyUI nodes that:
-- convert natural-language prose into positive and negative prompts;
-- support both standard prompt output and split prompt output;
+- convert natural-language prose into prompt and workflow outputs;
+- support standard prompt output, split prompt output, checkpoint selection, and KSampler config selection;
 - later recommend suitable LoRAs from the local ComfyUI environment;
 - later refine prompts iteratively by reviewing generated images.
 
 This is an **LLM-assisted** system. Prompt transformation and selection logic are intentionally delegated to the LLM. Local code is responsible for input preparation, schema enforcement, caching, validation, and execution of validated outputs.
 
-## Planned nodes
+## Current node flow
 
-### 1. Simple Prompt Node
+The current workflow shape is:
 
-Takes user prose plus a connected `MODEL` and returns:
+`BigPlayer LLM Provider` -> `BigPlayer LLM Root` -> one or more module nodes
+
+The root discovers attached modules, builds one provider request, validates one structured response, and publishes a shared session. Each module reads only its own validated result slice.
+
+### Core nodes
+
+#### 1. BigPlayer LLM Provider
+
+Provides:
+- `provider`
+- `provider_model`
+- `api_key`
+- `provider_base_url`
+- `assume_determinism`
+
+Outputs:
+- `provider_config`
+
+#### 2. BigPlayer LLM Root
+
+Takes:
+- `prose`
+- `provider_config`
+
+Outputs:
+- `session`
+
+#### 3. BigPlayer Basic Prompt
+
+Takes:
+- `session`
+
+Outputs:
 - `positive_prompt`
 - `negative_prompt`
 - `comments`
 
-### 2. Split Prompt Node
+#### 4. BigPlayer Split Prompt
 
-Takes user prose plus a connected `MODEL` and returns:
+Takes:
+- `session`
+
+Outputs:
 - `text_l_positive`
 - `text_g_positive`
 - `text_l_negative`
 - `text_g_negative`
 - `comments`
+
+#### 5. BigPlayer KSampler Config
+
+Takes:
+- `session`
+
+Outputs:
+- `steps`
+- `cfg`
+- `sampler_name`
+- `scheduler`
+- `denoise`
+- `comments`
+
+#### 6. BigPlayer Checkpoint Picker
+
+Takes:
+- `session`
+
+Outputs:
+- `checkpoint_name`
+- `comments`
+
+#### 7. BigPlayer Model Context
+
+Takes:
+- `session`
+- `model_context`
+
+This module contributes extra context to the provider request but does not expose its own final payload.
 
 ## Development setup
 
@@ -78,7 +144,17 @@ BIGPLAYER_GROK_API_KEY=... \
 .venv/bin/pytest tests/unit/test_live_provider.py -m live
 ```
 
-### 3. LoRA-Aware Prompt Node
+## Composition model
+
+- Modules contribute normalized contracts and local environment-derived config.
+- Providers own prompt fragment text and provider-facing schema fragments.
+- The root performs exactly one provider call for all attached modules.
+- Duplicate identical modules are allowed and return the same shared result.
+- Conflicting duplicate module configs on the same root fail before the provider call.
+
+## Planned nodes
+
+### 1. LoRA-Aware Prompt Module
 
 Planned extension of the prompt-generation flow.
 
@@ -94,15 +170,15 @@ Returns prompt outputs plus a structured LoRA recommendation list such as:
 ]
 ```
 
-### 4. LoRA Review Node
+### 2. LoRA Review Node
 
 Consumes the structured LoRA recommendation list and presents it clearly for user review and manual handling.
 
-### 5. LoRA Apply Node
+### 3. LoRA Apply Node
 
 Consumes validated LoRA recommendations and attempts to apply them in the workflow.
 
-### 6. Prompt Refinement Node
+### 4. Prompt Refinement Node
 
 Takes a generated image plus prior prompt context, asks the LLM to critique the result against the original intent, and returns revised prompt outputs.
 
@@ -112,7 +188,7 @@ Takes a generated image plus prior prompt context, asks the LLM to critique the 
   Operational outputs must use schema-bound structured responses wherever feasible.
 
 - **Provider-native schema enforcement**  
-  Where supported, the provider must be asked to return output matching a declared schema.
+  Where supported, the provider must be asked to return output matching a declared schema assembled from provider-owned fragments.
 
 - **Local validation remains mandatory**  
   Even with provider-side structured output, local code still validates responses before use.
@@ -149,10 +225,14 @@ The intended behaviour is:
 
 ### Phase 1
 - Grok provider adapter
-- internal response schemas
+- modular capability contracts
 - shared prompt-generation service
-- simple prompt node
-- split prompt node
+- provider node
+- root session node
+- basic prompt module
+- split prompt module
+- KSampler config module
+- checkpoint picker module
 - caching and validation behaviour
 
 ### Phase 2
@@ -171,8 +251,8 @@ The intended behaviour is:
 The codebase is expected to separate concerns cleanly, with boundaries roughly along these lines:
 - `nodes/` — ComfyUI node classes
 - `providers/` — LLM provider adapters
-- `prompts/` — prompt templates and instructions
-- `schemas/` or `models/` — structured response models
+- `prompts/` — provider-owned prompt fragments and instructions
+- `schemas/` or `models/` — provider result validation models
 - `services/` — orchestration logic
 - `utils/` — hashing, cache helpers, logging, error mapping
 

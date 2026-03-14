@@ -1,15 +1,11 @@
-# BigPlayer Prompt (Split)
+# BigPlayer Split Prompt
 
-Converts freeform prose into split positive and negative prompt channels plus comments.
+Reads the `split_prompt` portion of a shared structured LLM response.
 
-Inputs:
-- `prose`
-- `api_key`
-- `llm_model`
-- `MODEL`
-- `style_policy`
-- `provider_base_url`
-- `assume_determinism`
+This node does not call the provider directly. It consumes the shared `session` emitted by `BigPlayer LLM Root`. The root discovers this module, asks the provider for the `split_prompt` capability, and validates the combined response before this node reads its own slice.
+
+Input:
+- `session`
 
 Outputs:
 - `text_l_positive`
@@ -18,3 +14,6 @@ Outputs:
 - `text_g_negative`
 - `comments`
 
+Notes:
+- The split output is intended for workflows that distinguish local and global text channels.
+- Multiple `BigPlayer Split Prompt` nodes may attach to the same root and will return the same validated result.

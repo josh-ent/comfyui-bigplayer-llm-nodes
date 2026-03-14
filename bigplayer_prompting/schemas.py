@@ -1,29 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
-
 from .capabilities import CAPABILITY_DEFINITIONS
 from .errors import MalformedProviderResponseError
-
-
-def get_provider_schema(capability_configs: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    properties: dict[str, Any] = {}
-    required: list[str] = []
-    for capability_id, config in capability_configs.items():
-        schema_builder = CAPABILITY_DEFINITIONS[capability_id].build_schema
-        schema = schema_builder(config)
-        if schema is None:
-            continue
-        properties[capability_id] = schema
-        required.append(capability_id)
-
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "required": required,
-        "properties": properties,
-    }
-
 
 def validate_result(
     capability_configs: dict[str, dict[str, Any]],

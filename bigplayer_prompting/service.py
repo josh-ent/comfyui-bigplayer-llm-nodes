@@ -9,11 +9,12 @@ from .capabilities import (
     CAPABILITY_DEFINITIONS,
     MODEL_CONTEXT_CAPABILITY,
     MODULE_CLASS_TO_CAPABILITY,
+    model_context_to_text,
 )
 from .errors import ProviderError
 from .operations import PromptGenerationOperation
 from .provider import InvocationContext, ProviderConfig, REGISTERED_PROVIDERS, redact_secret
-from .schemas import get_provider_schema, validate_result
+from .schemas import validate_result
 
 SCHEMA_VERSION = "modular-v1"
 
@@ -165,24 +166,17 @@ class PromptGenerationService:
         output_configs: dict[str, dict[str, Any]],
     ) -> PromptGenerationOperation:
         context_blocks: list[tuple[str, str]] = []
-        capability_instructions: list[str] = []
         for capability_id, config in capability_configs.items():
-            prompt_text = CAPABILITY_DEFINITIONS[capability_id].build_prompt(config).strip()
-            if not prompt_text:
-                continue
             if capability_id == MODEL_CONTEXT_CAPABILITY:
-                context_blocks.append(("Additional model context", prompt_text))
-            else:
-                capability_instructions.append(prompt_text)
+                prompt_text = model_context_to_text(config).strip()
+                if prompt_text:
+                    context_blocks.append(("Additional model context", prompt_text))
 
         return PromptGenerationOperation(
             prose=prose,
             context_blocks=tuple(context_blocks),
-            capability_instructions=tuple(capability_instructions),
             requested_capabilities=tuple(sorted(output_configs)),
             capability_configs=output_configs,
-            response_schema_name="bigplayer_modular_llm_result",
-            response_schema=get_provider_schema(output_configs),
         )
 
     def _validate_provider_bundle(self, provider_bundle: LLMProviderBundle) -> None:

@@ -105,7 +105,6 @@ def test_service_discovers_root_modules_and_builds_composed_operation(monkeypatc
         KSAMPLER_CONFIG_CAPABILITY,
     )
     assert any("Use an SDXL-style workflow." in block[1] for block in operation.context_blocks)
-    assert "sdxl-base.safetensors" in "\n".join(operation.capability_instructions)
     assert isinstance(provider.contexts[0], InvocationContext)
     assert session.root_node_id == "root"
 

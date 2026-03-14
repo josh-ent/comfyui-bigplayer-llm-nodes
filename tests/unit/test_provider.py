@@ -27,23 +27,8 @@ def _operation() -> PromptGenerationOperation:
     return PromptGenerationOperation(
         prose="A cat on a windowsill.",
         context_blocks=(("Additional model context", "A photoreal SDXL workflow."),),
-        capability_instructions=(
-            "Capability `basic_prompt`:\n- Return `positive_prompt`, `negative_prompt`, and `comments`.",
-        ),
         requested_capabilities=(BASIC_PROMPT_CAPABILITY,),
         capability_configs={BASIC_PROMPT_CAPABILITY: {}},
-        response_schema_name="test_schema",
-        response_schema={
-            "type": "object",
-            "properties": {
-                "basic_prompt": {
-                    "type": "object",
-                    "properties": {"positive_prompt": {"type": "string"}},
-                    "required": ["positive_prompt"],
-                }
-            },
-            "required": ["basic_prompt"],
-        },
     )
 
 
@@ -90,10 +75,12 @@ def test_xai_provider_renders_generic_prompt_generation_operation():
     assert "A cat on a windowsill." in rendered.user_prompt
     assert "A photoreal SDXL workflow." in rendered.user_prompt
     assert "basic_prompt" in rendered.user_prompt
+    assert "positive_prompt" in rendered.user_prompt
     payload = rendered.as_payload()
     assert payload["tools"] == [{"type": "web_search"}]
     assert payload["text"]["format"]["strict"] is True
     assert payload["stream"] is True
+    assert "basic_prompt" in payload["text"]["format"]["schema"]["properties"]
 
 
 @respx.mock
