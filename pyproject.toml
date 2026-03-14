@@ -41,6 +41,7 @@ requires-comfyui = ">=0.16.4"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+cache_dir = "~/.cache/comfyui-bigplayer-llm-nodes/pytest"
 markers = [
   "integration: tests that start a local ComfyUI runtime",
   "live: tests that hit a real Grok endpoint when explicitly enabled",
