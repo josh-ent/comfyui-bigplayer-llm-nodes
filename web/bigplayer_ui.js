@@ -8,18 +8,6 @@ const TYPE_COLORS = {
   BIGPLAYER_PRESET_CONFIG: "#669a4a",
 };
 
-const NODE_STYLES = {
-  BigPlayerLLMProvider: { color: "#2f8bbd", bgcolor: "#1b3f52" },
-  BigPlayerNaturalLanguageRoot: { color: "#c68728", bgcolor: "#574018" },
-  BigPlayerBasicPrompt: { color: "#c68728", bgcolor: "#574018" },
-  BigPlayerSplitPrompt: { color: "#c68728", bgcolor: "#574018" },
-  BigPlayerKSamplerConfig: { color: "#c68728", bgcolor: "#574018" },
-  BigPlayerCheckpointPicker: { color: "#c68728", bgcolor: "#574018" },
-  BigPlayerCheckpointState: { color: "#669a4a", bgcolor: "#2a4020" },
-  BigPlayerLoRAState: { color: "#669a4a", bgcolor: "#2a4020" },
-  BigPlayerControlNetState: { color: "#669a4a", bgcolor: "#2a4020" },
-};
-
 function getWidget(node, name) {
   return node.widgets?.find((widget) => widget.name === name) ?? null;
 }
@@ -60,16 +48,6 @@ function applyProviderModelOptions(node, providerModels) {
   node.setDirtyCanvas(true, true);
 }
 
-function applyNodeStyle(node, nodeName) {
-  const style = NODE_STYLES[nodeName];
-  if (!style) {
-    return;
-  }
-  node.color = style.color;
-  node.bgcolor = style.bgcolor;
-  node.setDirtyCanvas(true, true);
-}
-
 function installProviderWidgetBehavior(nodeType, providerModels) {
   const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
   nodeType.prototype.onNodeCreated = function () {
@@ -96,12 +74,11 @@ function installProviderWidgetBehavior(nodeType, providerModels) {
   };
 }
 
-function installNodeStyleBehavior(nodeType, nodeName) {
+function installTypeColorBehavior(nodeType) {
   const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
   nodeType.prototype.onNodeCreated = function () {
     const result = originalOnNodeCreated ? originalOnNodeCreated.apply(this, arguments) : undefined;
     registerTypeColors();
-    applyNodeStyle(this, nodeName);
     return result;
   };
 
@@ -109,7 +86,6 @@ function installNodeStyleBehavior(nodeType, nodeName) {
   nodeType.prototype.onConfigure = function () {
     const result = originalOnConfigure ? originalOnConfigure.apply(this, arguments) : undefined;
     registerTypeColors();
-    applyNodeStyle(this, nodeName);
     return result;
   };
 }
@@ -129,8 +105,6 @@ app.registerExtension({
       }
     }
 
-    if (NODE_STYLES[nodeName]) {
-      installNodeStyleBehavior(nodeType, nodeName);
-    }
+    installTypeColorBehavior(nodeType);
   },
 });

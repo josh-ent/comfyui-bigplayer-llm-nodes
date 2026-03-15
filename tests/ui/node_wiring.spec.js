@@ -18,12 +18,6 @@ const typeColors = {
   BIGPLAYER_PRESET_CONFIG: "#669a4a",
 };
 
-const nodeStyles = {
-  BigPlayerLLMProvider: { color: "#2f8bbd", bgcolor: "#1b3f52" },
-  BigPlayerNaturalLanguageRoot: { color: "#c68728", bgcolor: "#574018" },
-  BigPlayerLoRAState: { color: "#669a4a", bgcolor: "#2a4020" },
-};
-
 async function waitForEditor(page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
@@ -186,30 +180,15 @@ test.describe("BigPlayer ComfyUI frontend wiring", () => {
     expect(state.controlnetsAlso[1].tooltip).toContain("linked entries win ties where needed");
   });
 
-  test("applies BigPlayer concept colors to sockets and nodes", async ({ page }) => {
-    const state = await page.evaluate(({ expectedTypeColors, expectedNodeStyles }) => {
-      globalThis.app.graph.clear();
-
-      const providerNode = globalThis.LiteGraph.createNode("BigPlayerLLMProvider");
-      const rootNode = globalThis.LiteGraph.createNode("BigPlayerNaturalLanguageRoot");
-      const loraNode = globalThis.LiteGraph.createNode("BigPlayerLoRAState");
-      globalThis.app.graph.add(providerNode);
-      globalThis.app.graph.add(rootNode);
-      globalThis.app.graph.add(loraNode);
-
+  test("applies BigPlayer concept colors to sockets and links", async ({ page }) => {
+    const state = await page.evaluate((expectedTypeColors) => {
       return {
         typeColors: Object.fromEntries(
           Object.keys(expectedTypeColors).map((key) => [key, globalThis.LGraphCanvas.link_type_colors[key]]),
         ),
-        nodeStyles: {
-          BigPlayerLLMProvider: { color: providerNode.color, bgcolor: providerNode.bgcolor },
-          BigPlayerNaturalLanguageRoot: { color: rootNode.color, bgcolor: rootNode.bgcolor },
-          BigPlayerLoRAState: { color: loraNode.color, bgcolor: loraNode.bgcolor },
-        },
       };
-    }, { expectedTypeColors: typeColors, expectedNodeStyles: nodeStyles });
+    }, typeColors);
 
     expect(state.typeColors).toEqual(typeColors);
-    expect(state.nodeStyles).toEqual(nodeStyles);
   });
 });
