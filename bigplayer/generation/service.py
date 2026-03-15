@@ -192,6 +192,35 @@ class PromptGenerationService:
     def build_root_is_changed_token(self, *, prose: str, provider_bundle: LLMProviderBundle) -> float | str:
         if not provider_bundle.assume_determinism:
             return float("NaN")
+        return self.build_root_change_token(
+            prose=prose,
+            provider_bundle=provider_bundle,
+            dynprompt=None,
+            root_node_id="",
+            preset_config=None,
+        )
+
+    def build_root_change_token(
+        self,
+        *,
+        prose: str,
+        provider_bundle: LLMProviderBundle,
+        dynprompt: Any,
+        root_node_id: str,
+        preset_config: Any = None,
+    ) -> float | str:
+        if not provider_bundle.assume_determinism:
+            return float("NaN")
+
+        capability_configs: dict[str, dict[str, Any]] = {}
+        debug_enabled = False
+        if dynprompt is not None:
+            prompt = self._extract_prompt(dynprompt)
+            debug_enabled = self._has_prompt_debug(prompt, root_node_id)
+            capability_instances = self._discover_capabilities(prompt, root_node_id)
+            capability_configs = self._consolidate_capabilities(capability_instances)
+
+        preset_bundle = normalize_preset_config(preset_config)
         return stable_hash(
             {
                 "schema_version": SCHEMA_VERSION,
@@ -200,6 +229,9 @@ class PromptGenerationService:
                 "provider_model": provider_bundle.provider_model,
                 "api_key": redact_secret(provider_bundle.api_key),
                 "provider_base_url": provider_bundle.provider_base_url.strip(),
+                "capability_configs": capability_configs,
+                "preset_config": serialize_preset_config(preset_bundle),
+                "debug_enabled": debug_enabled,
             }
         )
 

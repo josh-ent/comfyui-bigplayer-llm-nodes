@@ -160,6 +160,60 @@ def build_no_provider_basic_workflow(provider_model: str, prose: str) -> dict:
     }
 
 
+def build_basic_prompt_workflow(provider_base_url: str) -> dict:
+    return {
+        "1": {
+            "class_type": "BigPlayerLLMProvider",
+            "inputs": {
+                "api_key": "test-key",
+                "provider": "xAI",
+                "provider_model": "grok-4-latest",
+                "provider_base_url": provider_base_url,
+                "assume_determinism": True,
+            },
+        },
+        "2": {
+            "class_type": "BigPlayerNaturalLanguageRoot",
+            "inputs": {
+                "prose": "A cinematic portrait of a cat in a film still.",
+                "provider_config": ["1", 0],
+            },
+        },
+        "3": {
+            "class_type": "BigPlayerBasicPrompt",
+            "inputs": {"session": ["2", 0]},
+        },
+        "4": {
+            "class_type": "BigPlayerTestSink",
+            "inputs": {
+                "value_1": ["3", 0],
+                "value_2": ["3", 1],
+                "value_3": ["3", 2],
+            },
+        },
+    }
+
+
+def build_basic_prompt_and_ksampler_workflow(provider_base_url: str) -> dict:
+    workflow = build_basic_prompt_workflow(provider_base_url)
+    workflow["5"] = {
+        "class_type": "BigPlayerKSamplerConfig",
+        "inputs": {"session": ["2", 0]},
+    }
+    workflow["6"] = {
+        "class_type": "BigPlayerTestKSamplerSink",
+        "inputs": {
+            "value_1": ["5", 0],
+            "value_2": ["5", 1],
+            "value_3": ["5", 2],
+            "value_4": ["5", 3],
+            "value_5": ["5", 4],
+            "value_6": ["5", 5],
+        },
+    }
+    return workflow
+
+
 def build_duplicate_prompt_workflow(provider_base_url: str) -> dict:
     return {
         "1": {
@@ -357,6 +411,57 @@ def test_duplicate_prompt_modules_share_one_provider_call():
             second = history["outputs"]["6"]
             assert first["value_1"][0] == second["value_1"][0]
             assert first["value_3"][0] == second["value_3"][0]
+
+
+def test_adding_ksampler_capability_invalidates_root_and_reruns_provider():
+    calls = {"count": 0}
+
+    def responder(body):
+        calls["count"] += 1
+        user_text = body["input"][1]["content"][0]["text"]
+        data = {
+            "basic_prompt": {
+                "positive_prompt": "cinematic cat portrait",
+                "negative_prompt": "blurry",
+                "comments": "Basic prompt result.",
+            }
+        }
+        if "ksampler_config" in user_text:
+            data["ksampler_config"] = {
+                "steps": 24,
+                "cfg": 7.5,
+                "sampler_name": "euler",
+                "scheduler": "normal",
+                "denoise": 1.0,
+                "comments": "Added sampler config.",
+            }
+        return {
+            "output": [
+                {
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": json.dumps(data),
+                        }
+                    ]
+                }
+            ]
+        }
+
+    with mock_provider_server(responder) as provider_base_url:
+        with comfy_server() as port:
+            first_id = queue_prompt(port, build_basic_prompt_workflow(provider_base_url))
+            first_history = wait_for_history(port, first_id)
+            assert first_history["status"]["status_str"] == "success"
+            assert first_history["outputs"]["4"]["value_1"][0] == "cinematic cat portrait"
+
+            second_id = queue_prompt(port, build_basic_prompt_and_ksampler_workflow(provider_base_url))
+            second_history = wait_for_history(port, second_id)
+            assert second_history["status"]["status_str"] == "success"
+            assert second_history["outputs"]["4"]["value_1"][0] == "cinematic cat portrait"
+            assert second_history["outputs"]["6"]["value_1"][0] == 24
+            assert second_history["outputs"]["6"]["value_3"][0] == "euler"
+            assert calls["count"] == 2
 
 
 def test_multiple_roots_do_not_cross_contaminate():

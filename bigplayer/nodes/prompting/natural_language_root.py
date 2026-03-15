@@ -61,3 +61,16 @@ class BigPlayerNaturalLanguageRoot:
                 invocation_context=reporter.as_invocation_context(),
             ),
         )
+
+    @classmethod
+    def IS_CHANGED(cls, prose, provider_config, preset_config=None, dynprompt=None, unique_id=None):
+        del cls
+        if prose is None or not str(prose).strip():
+            return float("NaN")
+        return _SERVICE.build_root_change_token(
+            prose=prose,
+            provider_bundle=provider_config,
+            preset_config=preset_config,
+            dynprompt=dynprompt,
+            root_node_id=str(unique_id or ""),
+        )

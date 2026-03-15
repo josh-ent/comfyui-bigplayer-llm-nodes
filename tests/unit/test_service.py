@@ -237,6 +237,32 @@ def test_cache_key_changes_when_preset_config_changes():
     assert len(provider.operations) == 2
 
 
+def test_cache_key_changes_when_attached_capabilities_change(monkeypatch):
+    monkeypatch.setattr(capabilities, "list_sampler_names", lambda: ["euler"])
+    monkeypatch.setattr(capabilities, "list_scheduler_names", lambda: ["karras"])
+    provider = FakeProvider()
+    service = PromptGenerationService(providers={"xAI": provider})
+
+    prompt_only = service.begin_session(
+        prose="A cinematic portrait of a cat.",
+        provider_bundle=_provider_bundle(),
+        dynprompt=_prompt(("2", "BigPlayerBasicPrompt", {"session": ["root", 0]})),
+        root_node_id="root",
+    )
+    prompt_and_sampler = service.begin_session(
+        prose="A cinematic portrait of a cat.",
+        provider_bundle=_provider_bundle(),
+        dynprompt=_prompt(
+            ("2", "BigPlayerBasicPrompt", {"session": ["root", 0]}),
+            ("3", "BigPlayerKSamplerConfig", {"session": ["root", 0]}),
+        ),
+        root_node_id="root",
+    )
+
+    assert prompt_only.cache_key != prompt_and_sampler.cache_key
+    assert len(provider.operations) == 2
+
+
 def test_invalid_sampler_response_surfaces_schema_failure(monkeypatch):
     monkeypatch.setattr(capabilities, "list_sampler_names", lambda: ["euler"])
     monkeypatch.setattr(capabilities, "list_scheduler_names", lambda: ["karras"])
