@@ -23,6 +23,11 @@ XAI_MODELS = (
     "grok-4-1-fast-reasoning",
     "grok-4-latest",
 )
+XAI_WEB_SEARCH_ALLOWED_DOMAINS = (
+    "civitai.com",
+    "huggingface.co",
+    "github.com",
+)
 CONNECT_TIMEOUT_SECONDS = 10.0
 READ_TIMEOUT_SECONDS = 300.0
 WRITE_TIMEOUT_SECONDS = 30.0
@@ -52,7 +57,12 @@ class RenderedXAIRequest:
                     "content": [{"type": "input_text", "text": self.user_prompt}],
                 },
             ],
-            "tools": [{"type": "web_search"}],
+            "tools": [
+                {
+                    "type": "web_search",
+                    "filters": {"allowed_domains": list(XAI_WEB_SEARCH_ALLOWED_DOMAINS)},
+                }
+            ],
             "text": {
                 "format": {
                     "type": "json_schema",
@@ -137,19 +147,25 @@ def _checkpoint_schema(config: dict[str, Any]) -> dict[str, Any]:
 def _basic_prompt_fragment(_: dict[str, Any]) -> str:
     return (
         "Capability `basic_prompt`:\n"
+        "- Consider the checkpoint that will eventually be used to create the requested image. Make yourself aware of any quirks, requirements, and prompting preferences that checkpoint has.\n"
+        "- When creating the prompts, craft them specifically for the known environment, taking any checkpoints, LoRAs, ControlNets, and other supplied context into consideration. You may need to do research to achieve this.\n"
         "- Return `positive_prompt`, `negative_prompt`, and `comments`.\n"
-        "- Positive prompts should be concise, specific, and workflow-ready.\n"
-        "- Negative prompts should list unwanted content rather than explain policy."
+        "- The positive and negative prompts should be tuned for the chosen setup and provide the strongest possible guidance to achieve the image described in the user's natural language prose.\n"
+        "- Comments should explain your thinking on the prompt construction, including any model-specific and LoRA-specific considerations where relevant. If helpful, add a brief `Consider` section for missing capabilities or missing context."
     )
 
 
 def _split_prompt_fragment(_: dict[str, Any]) -> str:
     return (
         "Capability `split_prompt`:\n"
+        "- Consider the checkpoint that will eventually be used to create the requested image. Make yourself aware of any quirks, requirements, and prompting preferences that checkpoint has.\n"
+        "- When creating the prompts, craft them specifically for the known environment, taking any checkpoints, LoRAs, ControlNets, and other supplied context into consideration. You may need to do research to achieve this.\n"
         "- Return `text_l_positive`, `text_g_positive`, `text_l_negative`, `text_g_negative`, and `comments`.\n"
+        "- The positive and negative prompts should be tuned for the chosen setup and provide the strongest possible guidance to achieve the image described in the user's natural language prose.\n"
+        "- Comments should explain your thinking on the prompt construction, including any model-specific and LoRA-specific considerations where relevant. If helpful, add a brief `Consider` section for missing capabilities or missing context.\n"
         "- `text_l_*` should focus on local subject/content details.\n"
         "- `text_g_*` should focus on broader mood, composition, and global styling.\n"
-        "- Do not duplicate the full positive prompt into both positive channels unless you explicitly note the fallback in comments."
+        "- Do not duplicate the full positive prompt into both positive channels unless you explicitly note the fallback in comments, or the chosen checkpoint prefers it."
     )
 
 
@@ -159,7 +175,7 @@ def _ksampler_fragment(config: dict[str, Any]) -> str:
         "- Return `steps`, `cfg`, `sampler_name`, `scheduler`, `denoise`, and `comments` for a standard ComfyUI KSampler.\n"
         f"- Allowed sampler names: {', '.join(config['sampler_names'])}\n"
         f"- Allowed scheduler names: {', '.join(config['scheduler_names'])}\n"
-        "- Choose practical settings that match the user's request."
+        "- Choose practical settings that match the user's request, and the chosen model and LoRA preferences where known. You may need to do research to achieve this."
     )
 
 
@@ -168,6 +184,8 @@ def _checkpoint_fragment(config: dict[str, Any]) -> str:
         "Capability `checkpoint_picker`:\n"
         "- Return `checkpoint_name` and `comments`.\n"
         "- Choose exactly one checkpoint from the allowed list.\n"
+        "- Select the checkpoint best able to produce the image requested by the user's natural language prose.\n"
+        "- You may need to do research on the available checkpoints if you are unsure about their capabilities.\n"
         f"- Allowed checkpoints: {', '.join(config['available_checkpoints'])}"
     )
 
@@ -297,12 +315,13 @@ class XAIProvider:
     ) -> RenderedXAIRequest:
         response_schema = self._build_response_schema(operation)
         capability_instructions = self._build_capability_instructions(operation)
-        system_prompt = """You convert user prose into structured, production-ready ComfyUI workflow data.
+        system_prompt = """You convert user natural language prose into structured, production-ready ComfyUI workflow data.
 
-You are not allowed to invent deterministic local logic that the node does not have.
+You will be provided with a series of capabilities. For each capability, produce the best possible output to drive the chosen environment toward the image described in the user's natural language prose.
+Process capabilities in the order provided when possible, because earlier decisions may inform later ones.
+You may look back at any point and adjust your thinking.
 Return only the schema requested by the caller.
 Use the supplied workflow context when it is present.
-Keep outputs practical and immediately usable in image workflows.
 Every capability object must include concise comments explaining the main decision or fallback.
 """
         sections = [f"User prose:\n{operation.prose.strip()}"]

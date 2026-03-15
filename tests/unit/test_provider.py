@@ -77,7 +77,14 @@ def test_xai_provider_renders_generic_prompt_generation_operation():
     assert "basic_prompt" in rendered.user_prompt
     assert "positive_prompt" in rendered.user_prompt
     payload = rendered.as_payload()
-    assert payload["tools"] == [{"type": "web_search"}]
+    assert payload["tools"] == [
+        {
+            "type": "web_search",
+            "filters": {
+                "allowed_domains": ["civitai.com", "huggingface.co", "github.com"],
+            },
+        }
+    ]
     assert payload["text"]["format"]["strict"] is True
     assert payload["stream"] is True
     assert "basic_prompt" in payload["text"]["format"]["schema"]["properties"]
@@ -111,7 +118,10 @@ def test_xai_provider_posts_streaming_responses_request_and_accepts_json_fallbac
     assert "Response schema (bigplayer_modular_llm_result):" in debug.request_text
     assert debug.response_text == '{"basic_prompt": {"positive_prompt": "ok"}}'
     sent = route.calls[0].request.read().decode("utf-8")
-    assert '"tools":[{"type":"web_search"}]' in sent
+    assert (
+        '"tools":[{"type":"web_search","filters":{"allowed_domains":["civitai.com","huggingface.co","github.com"]}}]'
+        in sent
+    )
     assert '"stream":true' in sent
     assert "secret-key" not in sent
 
