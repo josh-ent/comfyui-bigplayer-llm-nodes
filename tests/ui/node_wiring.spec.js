@@ -13,9 +13,9 @@ const expectedNodes = [
 ];
 
 const typeColors = {
-  BIGPLAYER_LLM_PROVIDER: "#2f8bbd",
-  BIGPLAYER_LLM_SESSION: "#c68728",
-  BIGPLAYER_PRESET_CONFIG: "#669a4a",
+  BIGPLAYER_LLM_PROVIDER: "#b76a5f",
+  BIGPLAYER_LLM_SESSION: "#5f8f8b",
+  BIGPLAYER_PRESET_CONFIG: "#8b6fb0",
 };
 
 async function waitForEditor(page) {
@@ -182,13 +182,100 @@ test.describe("BigPlayer ComfyUI frontend wiring", () => {
 
   test("applies BigPlayer concept colors to sockets and links", async ({ page }) => {
     const state = await page.evaluate((expectedTypeColors) => {
+      globalThis.app.graph.clear();
+      const providerNode = globalThis.LiteGraph.createNode("BigPlayerLLMProvider");
+      const rootNode = globalThis.LiteGraph.createNode("BigPlayerNaturalLanguageRoot");
+      const checkpointStateNode = globalThis.LiteGraph.createNode("BigPlayerCheckpointState");
+      globalThis.app.graph.add(providerNode);
+      globalThis.app.graph.add(rootNode);
+      globalThis.app.graph.add(checkpointStateNode);
+      const findSlot = (slots, name) => slots.find((slot) => slot.name === name);
+
       return {
         typeColors: Object.fromEntries(
           Object.keys(expectedTypeColors).map((key) => [key, globalThis.LGraphCanvas.link_type_colors[key]]),
         ),
+        slotColors: {
+          providerConfig: {
+            output: providerNode.outputs[0]
+              ? {
+                  color: providerNode.outputs[0].color,
+                  color_on: providerNode.outputs[0].color_on,
+                  color_off: providerNode.outputs[0].color_off,
+                  link_color: providerNode.outputs[0].link_color,
+                }
+              : null,
+            input: findSlot(rootNode.inputs, "provider_config")
+              ? {
+                  color: findSlot(rootNode.inputs, "provider_config").color,
+                  color_on: findSlot(rootNode.inputs, "provider_config").color_on,
+                  color_off: findSlot(rootNode.inputs, "provider_config").color_off,
+                  link_color: findSlot(rootNode.inputs, "provider_config").link_color,
+                }
+              : null,
+          },
+          session: {
+            output: rootNode.outputs[0]
+              ? {
+                  color: rootNode.outputs[0].color,
+                  color_on: rootNode.outputs[0].color_on,
+                  color_off: rootNode.outputs[0].color_off,
+                  link_color: rootNode.outputs[0].link_color,
+                }
+              : null,
+          },
+          presetConfig: {
+            output: checkpointStateNode.outputs[0]
+              ? {
+                  color: checkpointStateNode.outputs[0].color,
+                  color_on: checkpointStateNode.outputs[0].color_on,
+                  color_off: checkpointStateNode.outputs[0].color_off,
+                  link_color: checkpointStateNode.outputs[0].link_color,
+                }
+              : null,
+            input: findSlot(rootNode.inputs, "preset_config")
+              ? {
+                  color: findSlot(rootNode.inputs, "preset_config").color,
+                  color_on: findSlot(rootNode.inputs, "preset_config").color_on,
+                  color_off: findSlot(rootNode.inputs, "preset_config").color_off,
+                  link_color: findSlot(rootNode.inputs, "preset_config").link_color,
+                }
+              : null,
+          },
+        },
       };
     }, typeColors);
 
     expect(state.typeColors).toEqual(typeColors);
+    expect(state.slotColors.providerConfig.output).toEqual({
+      color: typeColors.BIGPLAYER_LLM_PROVIDER,
+      color_on: typeColors.BIGPLAYER_LLM_PROVIDER,
+      color_off: typeColors.BIGPLAYER_LLM_PROVIDER,
+      link_color: typeColors.BIGPLAYER_LLM_PROVIDER,
+    });
+    expect(state.slotColors.providerConfig.input).toEqual({
+      color: typeColors.BIGPLAYER_LLM_PROVIDER,
+      color_on: typeColors.BIGPLAYER_LLM_PROVIDER,
+      color_off: typeColors.BIGPLAYER_LLM_PROVIDER,
+      link_color: typeColors.BIGPLAYER_LLM_PROVIDER,
+    });
+    expect(state.slotColors.session.output).toEqual({
+      color: typeColors.BIGPLAYER_LLM_SESSION,
+      color_on: typeColors.BIGPLAYER_LLM_SESSION,
+      color_off: typeColors.BIGPLAYER_LLM_SESSION,
+      link_color: typeColors.BIGPLAYER_LLM_SESSION,
+    });
+    expect(state.slotColors.presetConfig.output).toEqual({
+      color: typeColors.BIGPLAYER_PRESET_CONFIG,
+      color_on: typeColors.BIGPLAYER_PRESET_CONFIG,
+      color_off: typeColors.BIGPLAYER_PRESET_CONFIG,
+      link_color: typeColors.BIGPLAYER_PRESET_CONFIG,
+    });
+    expect(state.slotColors.presetConfig.input).toEqual({
+      color: typeColors.BIGPLAYER_PRESET_CONFIG,
+      color_on: typeColors.BIGPLAYER_PRESET_CONFIG,
+      color_off: typeColors.BIGPLAYER_PRESET_CONFIG,
+      link_color: typeColors.BIGPLAYER_PRESET_CONFIG,
+    });
   });
 });

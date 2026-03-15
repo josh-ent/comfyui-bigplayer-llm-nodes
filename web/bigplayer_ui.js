@@ -3,9 +3,9 @@ import { app } from "../../scripts/app.js";
 const PROVIDER_MODEL_NODES = new Set(["BigPlayerLLMProvider"]);
 
 const TYPE_COLORS = {
-  BIGPLAYER_LLM_PROVIDER: "#2f8bbd",
-  BIGPLAYER_LLM_SESSION: "#c68728",
-  BIGPLAYER_PRESET_CONFIG: "#669a4a",
+  BIGPLAYER_LLM_PROVIDER: "#b76a5f",
+  BIGPLAYER_LLM_SESSION: "#5f8f8b",
+  BIGPLAYER_PRESET_CONFIG: "#8b6fb0",
 };
 
 function getWidget(node, name) {
@@ -27,6 +27,25 @@ function registerTypeColors() {
   assignTypeColors(app.canvas?.default_connection_color_byType);
   assignTypeColors(app.canvas?.default_connection_color_byTypeOff);
   assignTypeColors(app.canvas?.default_connection_color_byTypeOn);
+}
+
+function applySlotTypeColors(node) {
+  for (const slots of [node.inputs, node.outputs]) {
+    if (!Array.isArray(slots)) {
+      continue;
+    }
+    for (const slot of slots) {
+      const color = TYPE_COLORS[slot?.type];
+      if (!color) {
+        continue;
+      }
+      slot.color = color;
+      slot.color_on = color;
+      slot.color_off = color;
+      slot.link_color = color;
+    }
+  }
+  node.setDirtyCanvas(true, true);
 }
 
 function applyProviderModelOptions(node, providerModels) {
@@ -79,6 +98,7 @@ function installTypeColorBehavior(nodeType) {
   nodeType.prototype.onNodeCreated = function () {
     const result = originalOnNodeCreated ? originalOnNodeCreated.apply(this, arguments) : undefined;
     registerTypeColors();
+    applySlotTypeColors(this);
     return result;
   };
 
@@ -86,6 +106,7 @@ function installTypeColorBehavior(nodeType) {
   nodeType.prototype.onConfigure = function () {
     const result = originalOnConfigure ? originalOnConfigure.apply(this, arguments) : undefined;
     registerTypeColors();
+    applySlotTypeColors(this);
     return result;
   };
 }
