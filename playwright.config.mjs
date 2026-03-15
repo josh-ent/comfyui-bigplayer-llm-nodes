@@ -55,7 +55,7 @@ export default defineConfig({
     command: "python tests/ui/serve_comfyui.py",
     url: `http://127.0.0.1:${port}/object_info`,
     reuseExistingServer: false,
-    timeout: 180_000,
+    timeout: 900_000,
     gracefulShutdown: {
       signal: "SIGTERM",
       timeout: 10_000,

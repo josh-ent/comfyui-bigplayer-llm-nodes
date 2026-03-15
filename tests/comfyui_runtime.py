@@ -18,7 +18,7 @@ import uuid
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SUPPORT_NODE_DIR = REPO_ROOT / "tests" / "support_nodes" / "model_stub_pack"
 DOCKERFILE_PATH = REPO_ROOT / "tests" / "integration" / "comfyui" / "Dockerfile"
-COMFYUI_REF = "v0.16.4"
+COMFYUI_REF = "v0.17.2"
 IMAGE_TAG = "bigplayer-comfyui-integration:" + hashlib.blake2b(
     (COMFYUI_REF + DOCKERFILE_PATH.read_text(encoding="utf-8")).encode("utf-8"),
     digest_size=8,
