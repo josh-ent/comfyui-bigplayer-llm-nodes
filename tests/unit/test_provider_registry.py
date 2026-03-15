@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from bigplayer_prompting.nodes import BigPlayerLLMProvider
-from bigplayer_prompting.provider import list_models, list_provider_ids, provider_model_map
+from bigplayer_prompting.providers.registry import list_models, list_provider_ids, provider_model_map
 
 
 def test_registered_xai_provider_models_match_expected_node_dropdown():

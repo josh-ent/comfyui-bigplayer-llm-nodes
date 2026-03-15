@@ -5,19 +5,13 @@ from threading import Lock
 from typing import Any
 
 from .cache import CacheKey, DeterministicCache, stable_hash
-from .capabilities import (
-    CAPABILITY_DEFINITIONS,
-    MODULE_CLASS_TO_CAPABILITY,
-)
-from .errors import ProviderError
+from .capabilities import CAPABILITY_DEFINITIONS, MODULE_CLASS_TO_CAPABILITY
 from .operations import PromptGenerationOperation
-from .preset import (
-    normalize_preset_config,
-    render_preset_config,
-    serialize_preset_config,
-)
-from .provider import InvocationContext, ProviderConfig, REGISTERED_PROVIDERS, redact_secret
 from .schemas import validate_result
+from ..errors import ProviderError
+from ..providers.base import InvocationContext, ProviderConfig, redact_secret
+from ..providers.registry import REGISTERED_PROVIDERS
+from ..state.preset import normalize_preset_config, render_preset_config, serialize_preset_config
 
 SCHEMA_VERSION = "modular-v3"
 
@@ -122,7 +116,10 @@ class PromptGenerationService:
             cached = self._cache.get(cache_key)
             if cached is not None:
                 invocation_context.report_status("Reusing cached modular LLM result.")
-                self._sessions.set(session_handle.session_id, SessionRecord(capability_configs=capability_configs, payload=cached))
+                self._sessions.set(
+                    session_handle.session_id,
+                    SessionRecord(capability_configs=capability_configs, payload=cached),
+                )
                 return session_handle
 
         operation = self._build_operation(
@@ -147,7 +144,10 @@ class PromptGenerationService:
         validated = validate_result(output_configs, payload)
         if provider_bundle.assume_determinism:
             self._cache.set(cache_key, validated)
-        self._sessions.set(session_handle.session_id, SessionRecord(capability_configs=capability_configs, payload=validated))
+        self._sessions.set(
+            session_handle.session_id,
+            SessionRecord(capability_configs=capability_configs, payload=validated),
+        )
         invocation_context.report_status("Modular prompt generation complete.")
         return session_handle
 

@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..capabilities import (
+from ..generation.capabilities import (
     BASIC_PROMPT_CAPABILITY,
     CHECKPOINT_PICKER_CAPABILITY,
     KSAMPLER_CONFIG_CAPABILITY,
     SPLIT_PROMPT_CAPABILITY,
 )
 from ..errors import ProviderError, UnsupportedOperationError
-from ..operations import OperationKind, PromptGenerationOperation
-from ..provider import InvocationContext, ProviderConfig
+from ..generation.operations import OperationKind, PromptGenerationOperation
+from .base import InvocationContext, ProviderConfig
 
 NO_PROVIDER_ID = "No Provider"
 NO_PROVIDER_BASE_URL = ""

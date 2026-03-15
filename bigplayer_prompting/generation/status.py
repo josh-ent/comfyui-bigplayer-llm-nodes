@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .provider import InvocationContext
+from ..providers.base import InvocationContext
 
 
 @dataclass

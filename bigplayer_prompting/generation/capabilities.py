@@ -5,7 +5,7 @@ from typing import Any, Callable
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from .errors import MalformedProviderResponseError, ProviderError
+from ..errors import MalformedProviderResponseError, ProviderError
 
 BASIC_PROMPT_CAPABILITY = "basic_prompt"
 SPLIT_PROMPT_CAPABILITY = "split_prompt"
@@ -32,13 +32,7 @@ def list_sampler_names() -> list[str]:
     try:
         import comfy.samplers
     except ImportError:
-        return [
-            "euler",
-            "euler_ancestral",
-            "dpmpp_2m",
-            "dpmpp_sde",
-            "ddim",
-        ]
+        return ["euler", "euler_ancestral", "dpmpp_2m", "dpmpp_sde", "ddim"]
     return list(comfy.samplers.KSampler.SAMPLERS)
 
 
@@ -46,13 +40,7 @@ def list_scheduler_names() -> list[str]:
     try:
         import comfy.samplers
     except ImportError:
-        return [
-            "normal",
-            "karras",
-            "simple",
-            "sgm_uniform",
-            "ddim_uniform",
-        ]
+        return ["normal", "karras", "simple", "sgm_uniform", "ddim_uniform"]
     return list(comfy.samplers.KSampler.SCHEDULERS)
 
 

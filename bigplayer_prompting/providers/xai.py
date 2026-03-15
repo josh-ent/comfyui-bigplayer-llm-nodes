@@ -6,15 +6,15 @@ from typing import Any, Callable
 
 import httpx
 
-from ..capabilities import (
+from ..generation.capabilities import (
     BASIC_PROMPT_CAPABILITY,
     CHECKPOINT_PICKER_CAPABILITY,
     KSAMPLER_CONFIG_CAPABILITY,
     SPLIT_PROMPT_CAPABILITY,
 )
 from ..errors import MalformedProviderResponseError, ProviderError, UnsupportedOperationError
-from ..operations import OperationKind, PromptGenerationOperation
-from ..provider import InvocationContext, ProviderConfig, redact_secret
+from ..generation.operations import OperationKind, PromptGenerationOperation
+from .base import InvocationContext, ProviderConfig, redact_secret
 
 XAI_PROVIDER_ID = "xAI"
 XAI_PROVIDER_BASE_URL = "https://api.x.ai/v1"

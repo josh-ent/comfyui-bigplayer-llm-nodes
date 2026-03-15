@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from typing import Any
+
 from .capabilities import CAPABILITY_DEFINITIONS
-from .errors import MalformedProviderResponseError
+from ..errors import MalformedProviderResponseError
+
 
 def validate_result(
     capability_configs: dict[str, dict[str, Any]],
@@ -10,7 +13,9 @@ def validate_result(
     if not isinstance(payload, dict):
         raise MalformedProviderResponseError("Provider returned a non-object structured payload.")
 
-    expected = set(capability_id for capability_id in capability_configs if CAPABILITY_DEFINITIONS[capability_id].produces_output)
+    expected = set(
+        capability_id for capability_id in capability_configs if CAPABILITY_DEFINITIONS[capability_id].produces_output
+    )
     actual = set(payload)
     if actual != expected:
         raise MalformedProviderResponseError(

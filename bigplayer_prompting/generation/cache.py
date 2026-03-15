@@ -29,4 +29,3 @@ class DeterministicCache:
     def set(self, key: CacheKey, value: Any) -> None:
         with self._lock:
             self._data[key.value] = value
-

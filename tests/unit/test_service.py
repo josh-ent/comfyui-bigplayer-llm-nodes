@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import pytest
 
-import bigplayer_prompting.capabilities as capabilities
-from bigplayer_prompting.capabilities import (
+import bigplayer_prompting.generation.capabilities as capabilities
+from bigplayer_prompting.generation.capabilities import (
     BASIC_PROMPT_CAPABILITY,
     CHECKPOINT_PICKER_CAPABILITY,
     KSAMPLER_CONFIG_CAPABILITY,
 )
 from bigplayer_prompting.errors import MalformedProviderResponseError, ProviderError
-from bigplayer_prompting.operations import OperationKind
-from bigplayer_prompting.preset import PresetConfigBundle, PresetLora
-from bigplayer_prompting.provider import InvocationContext
-from bigplayer_prompting.service import LLMProviderBundle, PromptGenerationService
+from bigplayer_prompting.generation.operations import OperationKind
+from bigplayer_prompting.generation.service import LLMProviderBundle, PromptGenerationService
+from bigplayer_prompting.providers.base import InvocationContext
+from bigplayer_prompting.state.preset import PresetConfigBundle, PresetLora
 
 
 class FakeDynPrompt:

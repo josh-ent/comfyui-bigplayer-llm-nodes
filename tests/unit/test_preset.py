@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from bigplayer_prompting.errors import ProviderError
-from bigplayer_prompting.preset import (
+from bigplayer_prompting.state.preset import (
     PresetConfigBundle,
     with_controlnet_state,
     with_lora_state,

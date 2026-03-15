@@ -7,10 +7,10 @@ import httpx
 import pytest
 import respx
 
-from bigplayer_prompting.capabilities import BASIC_PROMPT_CAPABILITY
+from bigplayer_prompting.generation.capabilities import BASIC_PROMPT_CAPABILITY
 from bigplayer_prompting.errors import MalformedProviderResponseError, ProviderError, UnsupportedOperationError
-from bigplayer_prompting.operations import PromptGenerationOperation
-from bigplayer_prompting.provider import InvocationContext, ProviderConfig
+from bigplayer_prompting.generation.operations import PromptGenerationOperation
+from bigplayer_prompting.providers.base import InvocationContext, ProviderConfig
 from bigplayer_prompting.providers.xai import XAIProvider
 
 

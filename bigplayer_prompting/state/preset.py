@@ -5,7 +5,7 @@ import os
 import re
 from typing import Any
 
-from .errors import ProviderError
+from ..errors import ProviderError
 
 
 LORA_SYNTAX_PATTERN = re.compile(r"<lora:([^:>]+):([-\d.]+)(?::([-\d.]+))?>", re.IGNORECASE)
@@ -34,14 +34,6 @@ def normalize_preset_config(value: Any) -> PresetConfigBundle | None:
     if isinstance(value, PresetConfigBundle):
         return value
     raise ProviderError("Preset Config must come from a BigPlayer state-indication node or be omitted.")
-
-
-def list_available_controlnets() -> list[str]:
-    try:
-        import folder_paths
-    except ImportError:
-        return []
-    return sorted(folder_paths.get_filename_list("controlnet"))
 
 
 def with_checkpoint_state(
