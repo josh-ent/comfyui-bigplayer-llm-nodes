@@ -12,6 +12,18 @@ const expectedNodes = [
   ["BigPlayerControlNetState", "BigPlayer ControlNet State"],
 ];
 
+const typeColors = {
+  BIGPLAYER_LLM_PROVIDER: "#2f8bbd",
+  BIGPLAYER_LLM_SESSION: "#c68728",
+  BIGPLAYER_PRESET_CONFIG: "#669a4a",
+};
+
+const nodeStyles = {
+  BigPlayerLLMProvider: { color: "#2f8bbd", bgcolor: "#1b3f52" },
+  BigPlayerNaturalLanguageRoot: { color: "#c68728", bgcolor: "#574018" },
+  BigPlayerLoRAState: { color: "#669a4a", bgcolor: "#2a4020" },
+};
+
 async function waitForEditor(page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
@@ -126,5 +138,78 @@ test.describe("BigPlayer ComfyUI frontend wiring", () => {
     expect(reloaded.provider).toBe("No Provider");
     expect(reloaded.availableModels).toEqual(["Positive", "Negative"]);
     expect(reloaded.selectedModel).toBe("Negative");
+  });
+
+  test("publishes the intended BigPlayer category structure", async ({ page }) => {
+    const categories = await page.evaluate(async () => {
+      const objectInfo = await fetch("/object_info").then((response) => response.json());
+      return {
+        provider: objectInfo.BigPlayerLLMProvider.category,
+        root: objectInfo.BigPlayerNaturalLanguageRoot.category,
+        basicPrompt: objectInfo.BigPlayerBasicPrompt.category,
+        splitPrompt: objectInfo.BigPlayerSplitPrompt.category,
+        ksamplerConfig: objectInfo.BigPlayerKSamplerConfig.category,
+        checkpointPicker: objectInfo.BigPlayerCheckpointPicker.category,
+        checkpointState: objectInfo.BigPlayerCheckpointState.category,
+      };
+    });
+
+    expect(categories).toEqual({
+      provider: "BigPlayer",
+      root: "BigPlayer/Prompting",
+      basicPrompt: "BigPlayer/Prompting/Capabilities",
+      splitPrompt: "BigPlayer/Prompting/Capabilities",
+      ksamplerConfig: "BigPlayer/Prompting/Capabilities",
+      checkpointPicker: "BigPlayer/Prompting/Capabilities",
+      checkpointState: "BigPlayer/State Indication",
+    });
+  });
+
+  test("publishes renamed linked-input sockets with clear tooltips", async ({ page }) => {
+    const state = await page.evaluate(async () => {
+      const objectInfo = await fetch("/object_info").then((response) => response.json());
+      const loraOptional = objectInfo.BigPlayerLoRAState.input.optional;
+      const controlnetOptional = objectInfo.BigPlayerControlNetState.input.optional;
+      return {
+        loraAlso: loraOptional.lora_syntax_also,
+        controlnetsAlso: controlnetOptional.controlnets_also,
+        hasLegacyLora: Boolean(loraOptional.lora_syntax_input),
+        hasLegacyControlnet: Boolean(controlnetOptional.controlnets_input),
+      };
+    });
+
+    expect(state.hasLegacyLora).toBe(false);
+    expect(state.hasLegacyControlnet).toBe(false);
+    expect(state.loraAlso[1].tooltip).toContain("concatenates it onto `lora_syntax`");
+    expect(state.loraAlso[1].tooltip).toContain("linked entries win ties where needed");
+    expect(state.controlnetsAlso[1].tooltip).toContain("concatenates it onto `controlnets`");
+    expect(state.controlnetsAlso[1].tooltip).toContain("linked entries win ties where needed");
+  });
+
+  test("applies BigPlayer concept colors to sockets and nodes", async ({ page }) => {
+    const state = await page.evaluate(({ expectedTypeColors, expectedNodeStyles }) => {
+      globalThis.app.graph.clear();
+
+      const providerNode = globalThis.LiteGraph.createNode("BigPlayerLLMProvider");
+      const rootNode = globalThis.LiteGraph.createNode("BigPlayerNaturalLanguageRoot");
+      const loraNode = globalThis.LiteGraph.createNode("BigPlayerLoRAState");
+      globalThis.app.graph.add(providerNode);
+      globalThis.app.graph.add(rootNode);
+      globalThis.app.graph.add(loraNode);
+
+      return {
+        typeColors: Object.fromEntries(
+          Object.keys(expectedTypeColors).map((key) => [key, globalThis.LGraphCanvas.link_type_colors[key]]),
+        ),
+        nodeStyles: {
+          BigPlayerLLMProvider: { color: providerNode.color, bgcolor: providerNode.bgcolor },
+          BigPlayerNaturalLanguageRoot: { color: rootNode.color, bgcolor: rootNode.bgcolor },
+          BigPlayerLoRAState: { color: loraNode.color, bgcolor: loraNode.bgcolor },
+        },
+      };
+    }, { expectedTypeColors: typeColors, expectedNodeStyles: nodeStyles });
+
+    expect(state.typeColors).toEqual(typeColors);
+    expect(state.nodeStyles).toEqual(nodeStyles);
   });
 });

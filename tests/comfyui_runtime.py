@@ -88,6 +88,22 @@ def _docker(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     )
 
 
+def remove_containers_by_labels(labels: dict[str, str]) -> None:
+    args = ["ps", "-aq"]
+    for key, value in labels.items():
+        args.extend(["--filter", f"label={key}={value}"])
+
+    result = _docker(*args, check=False)
+    if result.returncode != 0:
+        return
+
+    container_ids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not container_ids:
+        return
+
+    _docker("rm", "-f", *container_ids, check=False)
+
+
 @contextmanager
 def _image_build_lock(timeout_seconds: float = 300.0):
     lock_dir = Path(tempfile.gettempdir()) / f"{IMAGE_TAG.replace(':', '_')}.lock"
@@ -133,9 +149,15 @@ def ensure_test_image() -> None:
 
 
 @contextmanager
-def comfy_server(*, checkpoints: tuple[str, ...] = (), port: int | None = None):
+def comfy_server(
+    *,
+    checkpoints: tuple[str, ...] = (),
+    port: int | None = None,
+    docker_labels: dict[str, str] | None = None,
+):
     bound_port = port if port is not None else find_free_port()
     container_name = f"bigplayer-comfyui-{uuid.uuid4().hex[:8]}"
+    docker_labels = docker_labels or {}
 
     with tempfile.TemporaryDirectory(prefix="bigplayer-comfyui-runtime-") as runtime_root:
         runtime_path = Path(runtime_root)
@@ -146,7 +168,7 @@ def comfy_server(*, checkpoints: tuple[str, ...] = (), port: int | None = None):
         for checkpoint_name in checkpoints:
             (checkpoint_dir / checkpoint_name).touch()
 
-        _docker(
+        docker_run_args = [
             "run",
             "--rm",
             "--detach",
@@ -162,8 +184,12 @@ def comfy_server(*, checkpoints: tuple[str, ...] = (), port: int | None = None):
             f"type=bind,src={SUPPORT_NODE_DIR},dst=/opt/bigplayer/runtime/custom_nodes/bigplayer-test-support,readonly",
             "--mount",
             f"type=bind,src={runtime_path},dst=/opt/bigplayer/runtime",
-            IMAGE_TAG,
-        )
+        ]
+        for key, value in docker_labels.items():
+            docker_run_args.extend(["--label", f"{key}={value}"])
+        docker_run_args.append(IMAGE_TAG)
+
+        _docker(*docker_run_args)
 
         try:
             started = False

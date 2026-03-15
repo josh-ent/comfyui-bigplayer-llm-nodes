@@ -7,7 +7,7 @@ _SERVICE = PromptGenerationService()
 
 
 class _BaseSessionNode:
-    CATEGORY = "BigPlayer/Prompting"
+    CATEGORY = "BigPlayer/Prompting/Capabilities"
 
     @classmethod
     def _session_input(cls):

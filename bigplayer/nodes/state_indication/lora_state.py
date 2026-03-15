@@ -23,11 +23,14 @@ class BigPlayerLoRAState(_BaseStateNode):
             },
             "optional": {
                 "preset_config": cls._preset_input(),
-                "lora_syntax_input": (
+                "lora_syntax_also": (
                     "*",
                     {
                         "forceInput": True,
-                        "tooltip": "Optional linked LoRA syntax string or list of strings.",
+                        "tooltip": (
+                            "Takes a string or list of strings and concatenates it onto "
+                            "`lora_syntax`; linked entries win ties where needed."
+                        ),
                     },
                 ),
                 "lora_stack": (
@@ -45,12 +48,12 @@ class BigPlayerLoRAState(_BaseStateNode):
         del input_types, kwargs
         return True
 
-    def build(self, lora_syntax="", preset_config=None, lora_syntax_input=None, lora_stack=None):
+    def build(self, lora_syntax="", preset_config=None, lora_syntax_also=None, lora_stack=None):
         return (
             with_lora_state(
                 normalize_preset_config(preset_config),
                 manual_syntax=str(lora_syntax or ""),
-                linked_syntax=lora_syntax_input,
+                linked_syntax=lora_syntax_also,
                 lora_stack=lora_stack,
             ),
         )

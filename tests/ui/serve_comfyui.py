@@ -15,6 +15,7 @@ from tests.comfyui_runtime import comfy_server, ensure_test_image
 
 DEFAULT_PORT = 18188
 DEFAULT_CHECKPOINTS = ("sdxl-base-1.0.safetensors",)
+UI_TEST_LABELS = {"bigplayer.ui_test": "1"}
 
 
 def _watch_stdin_for_shutdown(shutdown: threading.Event) -> None:
@@ -44,7 +45,11 @@ def main() -> None:
     )
     stdin_watcher.start()
 
-    with comfy_server(port=port, checkpoints=DEFAULT_CHECKPOINTS):
+    from tests.comfyui_runtime import remove_containers_by_labels
+
+    remove_containers_by_labels(UI_TEST_LABELS)
+
+    with comfy_server(port=port, checkpoints=DEFAULT_CHECKPOINTS, docker_labels=UI_TEST_LABELS):
         print(f"ComfyUI UI test server listening on http://127.0.0.1:{port}", flush=True)
         shutdown.wait()
 

@@ -6,7 +6,16 @@ import sys
 import tempfile
 import textwrap
 
+from bigplayer import LLMProviderBundle, LLMSessionHandle, PresetConfigBundle, PresetLora
 from bigplayer.nodes import BigPlayerControlNetState, BigPlayerLoRAState
+from bigplayer.nodes.prompting import (
+    BigPlayerBasicPrompt,
+    BigPlayerCheckpointPicker,
+    BigPlayerKSamplerConfig,
+    BigPlayerLLMProvider,
+    BigPlayerNaturalLanguageRoot,
+    BigPlayerSplitPrompt,
+)
 
 
 def test_root_loader_supports_comfyui_style_import():
@@ -44,5 +53,23 @@ def test_root_loader_supports_comfyui_style_import():
 
 
 def test_state_nodes_accept_wildcard_inputs():
-    assert BigPlayerLoRAState.VALIDATE_INPUTS(input_types={"lora_syntax_input": "STRING"}) is True
-    assert BigPlayerControlNetState.VALIDATE_INPUTS(input_types={"controlnets_input": "STRING"}) is True
+    assert BigPlayerLoRAState.VALIDATE_INPUTS(input_types={"lora_syntax_also": "STRING"}) is True
+    assert BigPlayerControlNetState.VALIDATE_INPUTS(input_types={"controlnets_also": "STRING"}) is True
+
+
+def test_structure_definitions_are_reexported():
+    assert LLMProviderBundle.__name__ == "LLMProviderBundle"
+    assert LLMSessionHandle.__name__ == "LLMSessionHandle"
+    assert PresetConfigBundle.__name__ == "PresetConfigBundle"
+    assert PresetLora.__name__ == "PresetLora"
+
+
+def test_node_categories_match_the_intended_menu_structure():
+    assert BigPlayerLLMProvider.CATEGORY == "BigPlayer"
+    assert BigPlayerNaturalLanguageRoot.CATEGORY == "BigPlayer/Prompting"
+    assert BigPlayerBasicPrompt.CATEGORY == "BigPlayer/Prompting/Capabilities"
+    assert BigPlayerSplitPrompt.CATEGORY == "BigPlayer/Prompting/Capabilities"
+    assert BigPlayerKSamplerConfig.CATEGORY == "BigPlayer/Prompting/Capabilities"
+    assert BigPlayerCheckpointPicker.CATEGORY == "BigPlayer/Prompting/Capabilities"
+    assert BigPlayerLoRAState.CATEGORY == "BigPlayer/State Indication"
+    assert BigPlayerControlNetState.CATEGORY == "BigPlayer/State Indication"

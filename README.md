@@ -116,7 +116,7 @@ Outputs:
 
 Takes:
 - `lora_syntax`
-- `lora_syntax_input` (optional)
+- `lora_syntax_also` (optional)
 - `lora_stack` (optional)
 - `preset_config` (optional)
 
@@ -127,7 +127,7 @@ Outputs:
 
 Takes:
 - `controlnets`
-- `controlnets_input` (optional)
+- `controlnets_also` (optional)
 - `preset_config` (optional)
 
 Outputs:
@@ -306,3 +306,7 @@ This repository is being built as a proper ComfyUI extension, not as a thin wrap
 ## Development note
 
 The detailed implementation intent, delivery order, and architectural constraints are defined in `PROJECT_BRIEF.md`.
+
+## Structure definitions
+
+The shared `provider_config`, `session`, and `preset_config` contracts are documented in [`docs/structure-definitions.md`](docs/structure-definitions.md). These are explicit dataclasses, and the core types are re-exported from `bigplayer` for external reuse.

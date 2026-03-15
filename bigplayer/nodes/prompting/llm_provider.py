@@ -15,7 +15,7 @@ def _validate_provider_inputs(api_key: str, provider: str, provider_model: str) 
 
 
 class BigPlayerLLMProvider:
-    CATEGORY = "BigPlayer/Prompting"
+    CATEGORY = "BigPlayer"
     DESCRIPTION = "Build reusable LLM provider configuration for a BigPlayer Natural Language Root."
     RETURN_TYPES = ("BIGPLAYER_LLM_PROVIDER",)
     RETURN_NAMES = ("provider_config",)
