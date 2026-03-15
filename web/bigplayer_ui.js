@@ -19,14 +19,24 @@ function assignTypeColors(target) {
   Object.assign(target, TYPE_COLORS);
 }
 
+function ensureTypeColorMap(target, key) {
+  if (!target || typeof target !== "object") {
+    return null;
+  }
+  if (!target[key] || typeof target[key] !== "object") {
+    target[key] = {};
+  }
+  return target[key];
+}
+
 function registerTypeColors() {
   assignTypeColors(globalThis.LGraphCanvas?.link_type_colors);
-  assignTypeColors(globalThis.LGraphCanvas?.DEFAULT_CONNECTION_COLORS_BY_TYPE);
-  assignTypeColors(globalThis.LGraphCanvas?.DEFAULT_CONNECTION_COLORS_BY_TYPE_OFF);
-  assignTypeColors(globalThis.LGraphCanvas?.DEFAULT_CONNECTION_COLORS_BY_TYPE_ON);
-  assignTypeColors(app.canvas?.default_connection_color_byType);
-  assignTypeColors(app.canvas?.default_connection_color_byTypeOff);
-  assignTypeColors(app.canvas?.default_connection_color_byTypeOn);
+  assignTypeColors(ensureTypeColorMap(globalThis.LGraphCanvas, "DEFAULT_CONNECTION_COLORS_BY_TYPE"));
+  assignTypeColors(ensureTypeColorMap(globalThis.LGraphCanvas, "DEFAULT_CONNECTION_COLORS_BY_TYPE_OFF"));
+  assignTypeColors(ensureTypeColorMap(globalThis.LGraphCanvas, "DEFAULT_CONNECTION_COLORS_BY_TYPE_ON"));
+  assignTypeColors(ensureTypeColorMap(app.canvas, "default_connection_color_byType"));
+  assignTypeColors(ensureTypeColorMap(app.canvas, "default_connection_color_byTypeOff"));
+  assignTypeColors(ensureTypeColorMap(app.canvas, "default_connection_color_byTypeOn"));
 }
 
 function applySlotTypeColors(node) {

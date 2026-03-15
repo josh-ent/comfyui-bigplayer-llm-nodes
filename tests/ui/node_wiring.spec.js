@@ -195,6 +195,17 @@ test.describe("BigPlayer ComfyUI frontend wiring", () => {
         typeColors: Object.fromEntries(
           Object.keys(expectedTypeColors).map((key) => [key, globalThis.LGraphCanvas.link_type_colors[key]]),
         ),
+        canvasTypeColors: {
+          byType: Object.fromEntries(
+            Object.keys(expectedTypeColors).map((key) => [key, globalThis.app.canvas.default_connection_color_byType[key]]),
+          ),
+          byTypeOn: Object.fromEntries(
+            Object.keys(expectedTypeColors).map((key) => [key, globalThis.app.canvas.default_connection_color_byTypeOn[key]]),
+          ),
+          byTypeOff: Object.fromEntries(
+            Object.keys(expectedTypeColors).map((key) => [key, globalThis.app.canvas.default_connection_color_byTypeOff[key]]),
+          ),
+        },
         slotColors: {
           providerConfig: {
             output: providerNode.outputs[0]
@@ -247,6 +258,9 @@ test.describe("BigPlayer ComfyUI frontend wiring", () => {
     }, typeColors);
 
     expect(state.typeColors).toEqual(typeColors);
+    expect(state.canvasTypeColors.byType).toEqual(typeColors);
+    expect(state.canvasTypeColors.byTypeOn).toEqual(typeColors);
+    expect(state.canvasTypeColors.byTypeOff).toEqual(typeColors);
     expect(state.slotColors.providerConfig.output).toEqual({
       color: typeColors.BIGPLAYER_LLM_PROVIDER,
       color_on: typeColors.BIGPLAYER_LLM_PROVIDER,
