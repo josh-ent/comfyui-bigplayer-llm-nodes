@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import pytest
 
 import bigplayer_prompting.capabilities as capabilities
@@ -9,10 +7,10 @@ from bigplayer_prompting.capabilities import (
     BASIC_PROMPT_CAPABILITY,
     CHECKPOINT_PICKER_CAPABILITY,
     KSAMPLER_CONFIG_CAPABILITY,
-    MODEL_CONTEXT_CAPABILITY,
 )
 from bigplayer_prompting.errors import MalformedProviderResponseError, ProviderError
 from bigplayer_prompting.operations import OperationKind
+from bigplayer_prompting.preset import PresetConfigBundle, PresetLora
 from bigplayer_prompting.provider import InvocationContext
 from bigplayer_prompting.service import LLMProviderBundle, PromptGenerationService
 
@@ -87,12 +85,24 @@ def test_service_discovers_root_modules_and_builds_composed_operation(monkeypatc
     session = service.begin_session(
         prose="A cinematic portrait of a cat.",
         provider_bundle=_provider_bundle(),
+        preset_config=PresetConfigBundle(
+            checkpoint_name="sdxl-base.safetensors",
+            refiner_checkpoint_name="refiner.safetensors",
+            loras=(
+                PresetLora(
+                    name="detail",
+                    relative_path="styles\\detail.safetensors",
+                    model_strength=0.8,
+                    clip_strength=0.6,
+                ),
+            ),
+            controlnets=("depth.safetensors",),
+        ),
         dynprompt=_prompt(
             ("2", "BigPlayerBasicPrompt", {"session": ["root", 0]}),
             ("3", "BigPlayerKSamplerConfig", {"session": ["root", 0]}),
             ("4", "BigPlayerCheckpointPicker", {"session": ["root", 0]}),
-            ("5", "BigPlayerModelContext", {"session": ["root", 0], "model_context": "Use an SDXL-style workflow."}),
-            ("6", "BigPlayerBasicPrompt", {"session": ["other_root", 0]}),
+            ("5", "BigPlayerBasicPrompt", {"session": ["other_root", 0]}),
         ),
         root_node_id="root",
     )
@@ -104,7 +114,10 @@ def test_service_discovers_root_modules_and_builds_composed_operation(monkeypatc
         CHECKPOINT_PICKER_CAPABILITY,
         KSAMPLER_CONFIG_CAPABILITY,
     )
-    assert any("Use an SDXL-style workflow." in block[1] for block in operation.context_blocks)
+    assert any("sdxl-base.safetensors" in block[1] for block in operation.context_blocks)
+    assert any("refiner.safetensors" in block[1] for block in operation.context_blocks)
+    assert any("<lora:detail:0.8:0.6>" in block[1] for block in operation.context_blocks)
+    assert any("depth.safetensors" in block[1] for block in operation.context_blocks)
     assert isinstance(provider.contexts[0], InvocationContext)
     assert session.root_node_id == "root"
 
@@ -170,24 +183,6 @@ def test_duplicate_identical_modules_share_one_capability_request():
     assert resolved.positive_prompt == "cinematic cat portrait"
 
 
-def test_conflicting_duplicate_modules_fail_predictably():
-    provider = FakeProvider()
-    service = PromptGenerationService(providers={"xAI": provider})
-
-    with pytest.raises(ProviderError) as exc:
-        service.begin_session(
-            prose="A cinematic portrait of a cat.",
-            provider_bundle=_provider_bundle(),
-            dynprompt=_prompt(
-                ("2", "BigPlayerModelContext", {"session": ["root", 0], "model_context": "SDXL"}),
-                ("3", "BigPlayerModelContext", {"session": ["root", 0], "model_context": "Flux"}),
-                ("4", "BigPlayerBasicPrompt", {"session": ["root", 0]}),
-            ),
-            root_node_id="root",
-        )
-    assert "Conflicting `model_context` modules" in str(exc.value)
-
-
 def test_no_output_modules_fail_before_provider_call():
     provider = FakeProvider()
     service = PromptGenerationService(providers={"xAI": provider})
@@ -196,13 +191,36 @@ def test_no_output_modules_fail_before_provider_call():
         service.begin_session(
             prose="A cinematic portrait of a cat.",
             provider_bundle=_provider_bundle(),
-            dynprompt=_prompt(
-                ("2", "BigPlayerModelContext", {"session": ["root", 0], "model_context": "SDXL"}),
-            ),
+            dynprompt=_prompt(("2", "CheckpointLoaderSimple", {"ckpt_name": "sdxl-base.safetensors"})),
             root_node_id="root",
         )
     assert "at least one attached output module" in str(exc.value)
     assert provider.operations == []
+
+
+def test_cache_key_changes_when_preset_config_changes():
+    provider = FakeProvider()
+    service = PromptGenerationService(providers={"xAI": provider})
+    dynprompt = _prompt(("2", "BigPlayerBasicPrompt", {"session": ["root", 0]}))
+
+    first = service.begin_session(
+        prose="A cinematic portrait of a cat.",
+        provider_bundle=_provider_bundle(),
+        preset_config=PresetConfigBundle(checkpoint_name="sdxl"),
+        dynprompt=dynprompt,
+        root_node_id="root",
+    )
+
+    second = service.begin_session(
+        prose="A cinematic portrait of a cat.",
+        provider_bundle=_provider_bundle(),
+        preset_config=PresetConfigBundle(checkpoint_name="flux"),
+        dynprompt=dynprompt,
+        root_node_id="root",
+    )
+
+    assert first.cache_key != second.cache_key
+    assert len(provider.operations) == 2
 
 
 def test_invalid_sampler_response_surfaces_schema_failure(monkeypatch):

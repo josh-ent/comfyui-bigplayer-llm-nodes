@@ -7,16 +7,19 @@ from typing import Any
 from .cache import CacheKey, DeterministicCache, stable_hash
 from .capabilities import (
     CAPABILITY_DEFINITIONS,
-    MODEL_CONTEXT_CAPABILITY,
     MODULE_CLASS_TO_CAPABILITY,
-    model_context_to_text,
 )
 from .errors import ProviderError
 from .operations import PromptGenerationOperation
+from .preset import (
+    normalize_preset_config,
+    render_preset_config,
+    serialize_preset_config,
+)
 from .provider import InvocationContext, ProviderConfig, REGISTERED_PROVIDERS, redact_secret
 from .schemas import validate_result
 
-SCHEMA_VERSION = "modular-v1"
+SCHEMA_VERSION = "modular-v3"
 
 
 @dataclass(frozen=True)
@@ -83,11 +86,13 @@ class PromptGenerationService:
         provider_bundle: LLMProviderBundle,
         dynprompt: Any,
         root_node_id: str,
+        preset_config: Any = None,
         invocation_context: InvocationContext | None = None,
     ) -> LLMSessionHandle:
         invocation_context = invocation_context or InvocationContext()
         self._validate_provider_bundle(provider_bundle)
-        capability_instances = self._discover_capabilities(dynprompt, root_node_id)
+        prompt = self._extract_prompt(dynprompt)
+        capability_instances = self._discover_capabilities(prompt, root_node_id)
         capability_configs = self._consolidate_capabilities(capability_instances)
         output_configs = {
             capability_id: config
@@ -99,7 +104,14 @@ class PromptGenerationService:
                 "Natural Language Root requires at least one attached output module before calling the provider."
             )
 
-        cache_key = self._build_cache_key(prose, provider_bundle, capability_configs)
+        preset_bundle = normalize_preset_config(preset_config)
+        context_blocks = self._build_context_blocks(preset_bundle=preset_bundle)
+        cache_key = self._build_cache_key(
+            prose,
+            provider_bundle,
+            capability_configs,
+            preset_bundle=preset_bundle,
+        )
         session_handle = LLMSessionHandle(
             session_id=stable_hash({"root_node_id": root_node_id, "cache_key": cache_key.value}),
             root_node_id=str(root_node_id),
@@ -113,7 +125,11 @@ class PromptGenerationService:
                 self._sessions.set(session_handle.session_id, SessionRecord(capability_configs=capability_configs, payload=cached))
                 return session_handle
 
-        operation = self._build_operation(prose, capability_configs, output_configs)
+        operation = self._build_operation(
+            prose,
+            output_configs,
+            context_blocks=context_blocks,
+        )
         invocation_context.report_status(
             f"Calling {provider_bundle.provider} with model {provider_bundle.provider_model}..."
         )
@@ -164,22 +180,27 @@ class PromptGenerationService:
     def _build_operation(
         self,
         prose: str,
-        capability_configs: dict[str, dict[str, Any]],
         output_configs: dict[str, dict[str, Any]],
+        *,
+        context_blocks: tuple[tuple[str, str], ...],
     ) -> PromptGenerationOperation:
-        context_blocks: list[tuple[str, str]] = []
-        for capability_id, config in capability_configs.items():
-            if capability_id == MODEL_CONTEXT_CAPABILITY:
-                prompt_text = model_context_to_text(config).strip()
-                if prompt_text:
-                    context_blocks.append(("Additional model context", prompt_text))
-
         return PromptGenerationOperation(
             prose=prose,
-            context_blocks=tuple(context_blocks),
+            context_blocks=context_blocks,
             requested_capabilities=tuple(sorted(output_configs)),
             capability_configs=output_configs,
         )
+
+    def _build_context_blocks(
+        self,
+        *,
+        preset_bundle,
+    ) -> tuple[tuple[str, str], ...]:
+        blocks: list[tuple[str, str]] = []
+        preset_text = render_preset_config(preset_bundle).strip()
+        if preset_text:
+            blocks.append(("Preset workflow config", preset_text))
+        return tuple(blocks)
 
     def _validate_provider_bundle(self, provider_bundle: LLMProviderBundle) -> None:
         provider_definition = REGISTERED_PROVIDERS.get(provider_bundle.provider)
@@ -192,13 +213,15 @@ class PromptGenerationService:
         if provider_definition.requires_api_key and not provider_bundle.api_key.strip():
             raise ProviderError("The api_key input cannot be empty.")
 
-    def _discover_capabilities(self, dynprompt: Any, root_node_id: str) -> list[CapabilityInstance]:
+    def _extract_prompt(self, dynprompt: Any) -> dict[str, Any]:
         if dynprompt is None:
             raise ProviderError("Natural Language Root requires workflow metadata to discover attached modules.")
         prompt = dynprompt.get_original_prompt()
         if not isinstance(prompt, dict):
             raise ProviderError("Natural Language Root could not inspect the workflow graph.")
+        return prompt
 
+    def _discover_capabilities(self, prompt: dict[str, Any], root_node_id: str) -> list[CapabilityInstance]:
         discovered: list[CapabilityInstance] = []
         for node_id, node in prompt.items():
             if not isinstance(node, dict):
@@ -246,6 +269,8 @@ class PromptGenerationService:
         prose: str,
         provider_bundle: LLMProviderBundle,
         capability_configs: dict[str, dict[str, Any]],
+        *,
+        preset_bundle,
     ) -> CacheKey:
         return CacheKey(
             stable_hash(
@@ -257,6 +282,7 @@ class PromptGenerationService:
                     "api_key": redact_secret(provider_bundle.api_key),
                     "provider_base_url": provider_bundle.provider_base_url.strip(),
                     "capability_configs": capability_configs,
+                    "preset_config": serialize_preset_config(preset_bundle),
                 }
             )
         )

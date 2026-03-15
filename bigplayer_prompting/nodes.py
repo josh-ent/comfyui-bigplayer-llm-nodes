@@ -10,6 +10,13 @@ from .capabilities import (
     list_scheduler_names,
 )
 from .errors import BigPlayerError
+from .preset import (
+    NONE_OPTION,
+    normalize_preset_config,
+    with_checkpoint_state,
+    with_controlnet_state,
+    with_lora_state,
+)
 from .provider import REGISTERED_PROVIDERS, list_models, list_provider_ids, provider_model_map
 from .service import LLMProviderBundle, PromptGenerationService
 from .status import ComfyStatusReporter
@@ -19,6 +26,11 @@ _SERVICE = PromptGenerationService()
 _SAMPLER_NAME_OUTPUT_TYPE = list_sampler_names()
 _SCHEDULER_OUTPUT_TYPE = list_scheduler_names()
 _CHECKPOINT_NAME_OUTPUT_TYPE = list_available_checkpoints()
+_CHECKPOINT_OPTIONS = [NONE_OPTION, *list_available_checkpoints()]
+_CONTROLNET_TOOLTIP = (
+    "Enter one ControlNet per line or comma-separated. "
+    "You can also connect a string or string-list output."
+)
 
 
 def _validate_provider_inputs(api_key: str, provider: str, provider_model: str) -> bool | str:
@@ -124,13 +136,22 @@ class BigPlayerNaturalLanguageRoot:
                     },
                 ),
             },
+            "optional": {
+                "preset_config": (
+                    "BIGPLAYER_PRESET_CONFIG",
+                    {
+                        "forceInput": True,
+                        "tooltip": "Optional preset workflow state produced by BigPlayer state-indication nodes.",
+                    },
+                ),
+            },
             "hidden": {
                 "dynprompt": "DYNPROMPT",
                 "unique_id": "UNIQUE_ID",
             },
         }
 
-    def generate(self, prose, provider_config, dynprompt=None, unique_id=None):
+    def generate(self, prose, provider_config, preset_config=None, dynprompt=None, unique_id=None):
         reporter = ComfyStatusReporter(unique_id)
         if prose is None or not str(prose).strip():
             raise BigPlayerError("The prose input cannot be empty.")
@@ -138,6 +159,7 @@ class BigPlayerNaturalLanguageRoot:
             _SERVICE.begin_session(
                 prose=prose,
                 provider_bundle=provider_config,
+                preset_config=preset_config,
                 dynprompt=dynprompt,
                 root_node_id=str(unique_id or ""),
                 invocation_context=reporter.as_invocation_context(),
@@ -155,6 +177,22 @@ class _BaseSessionModule:
             {
                 "forceInput": True,
                 "tooltip": "Shared session emitted by a BigPlayer Natural Language Root.",
+            },
+        )
+
+
+class _BaseStateNode:
+    CATEGORY = "BigPlayer/State Indication"
+    RETURN_TYPES = ("BIGPLAYER_PRESET_CONFIG",)
+    RETURN_NAMES = ("preset_config",)
+
+    @classmethod
+    def _preset_input(cls):
+        return (
+            "BIGPLAYER_PRESET_CONFIG",
+            {
+                "forceInput": True,
+                "tooltip": "Optional preset config emitted by another BigPlayer state-indication node.",
             },
         )
 
@@ -238,30 +276,138 @@ class BigPlayerCheckpointPicker(_BaseSessionModule):
         return (result.checkpoint_name, result.comments)
 
 
-class BigPlayerModelContext(_BaseSessionModule):
-    DESCRIPTION = "Contribute optional model-context text to a shared LLM session."
-    RETURN_TYPES = ()
-    FUNCTION = "register"
+class BigPlayerCheckpointState(_BaseStateNode):
+    DESCRIPTION = "Indicate the currently chosen checkpoint and optional refiner checkpoint."
+    FUNCTION = "build"
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "session": cls._session_input(),
-                "model_context": (
+                "checkpoint_name": (
+                    _CHECKPOINT_OPTIONS,
+                    {
+                        "default": NONE_OPTION,
+                        "tooltip": "Selected base checkpoint, or <none> to leave unspecified.",
+                    },
+                ),
+                "refiner_checkpoint_name": (
+                    _CHECKPOINT_OPTIONS,
+                    {
+                        "default": NONE_OPTION,
+                        "tooltip": "Optional refiner checkpoint, or <none> to leave unspecified.",
+                    },
+                ),
+            },
+            "optional": {
+                "preset_config": cls._preset_input(),
+            }
+        }
+
+    def build(self, checkpoint_name=NONE_OPTION, refiner_checkpoint_name=NONE_OPTION, preset_config=None):
+        return (
+            with_checkpoint_state(
+                normalize_preset_config(preset_config),
+                checkpoint_name=checkpoint_name,
+                refiner_checkpoint_name=refiner_checkpoint_name,
+            ),
+        )
+
+
+class BigPlayerLoRAState(_BaseStateNode):
+    DESCRIPTION = "Indicate currently chosen LoRAs using LoRA Manager syntax or a linked LORA_STACK."
+    FUNCTION = "build"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "lora_syntax": (
                     "STRING",
                     {
                         "default": "",
                         "multiline": True,
-                        "tooltip": "Optional context string that the LLM can use when shaping all attached outputs.",
+                        "tooltip": "Use LoRA Manager syntax like <lora:name:0.6> or <lora:name:0.6:0.4>.",
                     },
                 ),
-            }
+            },
+            "optional": {
+                "preset_config": cls._preset_input(),
+                "lora_syntax_input": (
+                    "*",
+                    {
+                        "forceInput": True,
+                        "tooltip": "Optional linked LoRA syntax string or list of strings.",
+                    },
+                ),
+                "lora_stack": (
+                    "LORA_STACK",
+                    {
+                        "forceInput": True,
+                        "tooltip": "Optional linked LORA_STACK compatible with ComfyUI-Lora-Manager.",
+                    },
+                ),
+            },
         }
 
-    def register(self, session, model_context=""):
-        del session, model_context
-        return {}
+    @classmethod
+    def VALIDATE_INPUTS(cls, input_types=None, **kwargs):
+        del input_types, kwargs
+        return True
+
+    def build(self, lora_syntax="", preset_config=None, lora_syntax_input=None, lora_stack=None):
+        return (
+            with_lora_state(
+                normalize_preset_config(preset_config),
+                manual_syntax=str(lora_syntax or ""),
+                linked_syntax=lora_syntax_input,
+                lora_stack=lora_stack,
+            ),
+        )
+
+
+class BigPlayerControlNetState(_BaseStateNode):
+    DESCRIPTION = "Indicate currently chosen ControlNets using manual text or linked string inputs."
+    FUNCTION = "build"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "controlnets": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "multiline": True,
+                        "tooltip": _CONTROLNET_TOOLTIP,
+                    },
+                ),
+            },
+            "optional": {
+                "preset_config": cls._preset_input(),
+                "controlnets_input": (
+                    "*",
+                    {
+                        "forceInput": True,
+                        "tooltip": "Optional linked ControlNet string or list of strings.",
+                    },
+                ),
+            },
+        }
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, input_types=None, **kwargs):
+        del input_types, kwargs
+        return True
+
+    def build(self, controlnets="", preset_config=None, controlnets_input=None):
+        return (
+            with_controlnet_state(
+                normalize_preset_config(preset_config),
+                manual_controlnets=str(controlnets or ""),
+                linked_controlnets=controlnets_input,
+            ),
+        )
 
 
 NODE_CLASS_MAPPINGS = {
@@ -271,7 +417,9 @@ NODE_CLASS_MAPPINGS = {
     "BigPlayerSplitPrompt": BigPlayerSplitPrompt,
     "BigPlayerKSamplerConfig": BigPlayerKSamplerConfig,
     "BigPlayerCheckpointPicker": BigPlayerCheckpointPicker,
-    "BigPlayerModelContext": BigPlayerModelContext,
+    "BigPlayerCheckpointState": BigPlayerCheckpointState,
+    "BigPlayerLoRAState": BigPlayerLoRAState,
+    "BigPlayerControlNetState": BigPlayerControlNetState,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -281,5 +429,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "BigPlayerSplitPrompt": "BigPlayer Split Prompt",
     "BigPlayerKSamplerConfig": "BigPlayer KSampler Config",
     "BigPlayerCheckpointPicker": "BigPlayer Checkpoint Picker",
-    "BigPlayerModelContext": "BigPlayer Model Context",
+    "BigPlayerCheckpointState": "BigPlayer Checkpoint State",
+    "BigPlayerLoRAState": "BigPlayer LoRA State",
+    "BigPlayerControlNetState": "BigPlayer ControlNet State",
 }

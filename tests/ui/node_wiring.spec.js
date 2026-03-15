@@ -7,7 +7,9 @@ const expectedNodes = [
   ["BigPlayerSplitPrompt", "BigPlayer Split Prompt"],
   ["BigPlayerKSamplerConfig", "BigPlayer KSampler Config"],
   ["BigPlayerCheckpointPicker", "BigPlayer Checkpoint Picker"],
-  ["BigPlayerModelContext", "BigPlayer Model Context"],
+  ["BigPlayerCheckpointState", "BigPlayer Checkpoint State"],
+  ["BigPlayerLoRAState", "BigPlayer LoRA State"],
+  ["BigPlayerControlNetState", "BigPlayer ControlNet State"],
 ];
 
 async function waitForEditor(page) {

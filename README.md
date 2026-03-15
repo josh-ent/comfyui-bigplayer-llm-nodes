@@ -53,6 +53,7 @@ Outputs:
 Takes:
 - `prose`
 - `provider_config`
+- `preset_config` (optional)
 
 Outputs:
 - `session`
@@ -101,13 +102,38 @@ Outputs:
 - `checkpoint_name`
 - `comments`
 
-#### 7. BigPlayer Model Context
+#### 7. BigPlayer Checkpoint State
 
 Takes:
-- `session`
-- `model_context`
+- `checkpoint_name`
+- `refiner_checkpoint_name`
+- `preset_config` (optional)
 
-This module contributes extra context to the provider request but does not expose its own final payload.
+Outputs:
+- `preset_config`
+
+#### 8. BigPlayer LoRA State
+
+Takes:
+- `lora_syntax`
+- `lora_syntax_input` (optional)
+- `lora_stack` (optional)
+- `preset_config` (optional)
+
+Outputs:
+- `preset_config`
+
+#### 9. BigPlayer ControlNet State
+
+Takes:
+- `controlnets`
+- `controlnets_input` (optional)
+- `preset_config` (optional)
+
+Outputs:
+- `preset_config`
+
+These state-indication nodes can be chained together and then connected to `BigPlayer Natural Language Root` so the LLM works forward from explicit, user-provided workflow state.
 
 ## Development setup
 

@@ -11,14 +11,12 @@ BASIC_PROMPT_CAPABILITY = "basic_prompt"
 SPLIT_PROMPT_CAPABILITY = "split_prompt"
 KSAMPLER_CONFIG_CAPABILITY = "ksampler_config"
 CHECKPOINT_PICKER_CAPABILITY = "checkpoint_picker"
-MODEL_CONTEXT_CAPABILITY = "model_context"
 
 BIGPLAYER_MODULE_CLASS_TYPES = {
     "BigPlayerBasicPrompt",
     "BigPlayerSplitPrompt",
     "BigPlayerKSamplerConfig",
     "BigPlayerCheckpointPicker",
-    "BigPlayerModelContext",
 }
 
 
@@ -104,13 +102,6 @@ def _validate_model(model_cls: type[BaseModel], payload: dict[str, Any]) -> Base
         raise MalformedProviderResponseError(f"Provider response failed schema validation: {exc}") from exc
 
 
-def model_context_to_text(config: dict[str, Any]) -> str:
-    text = config["model_context"].strip()
-    if not text:
-        return ""
-    return f"Additional model context supplied by the workflow:\n{text}"
-
-
 def _validate_basic_prompt(payload: dict[str, Any], _: dict[str, Any]) -> BasicPromptPayload:
     return _validate_model(BasicPromptPayload, payload)
 
@@ -141,11 +132,6 @@ def _validate_checkpoint(payload: dict[str, Any], config: dict[str, Any]) -> Che
     return result
 
 
-def _validate_unused_payload(payload: dict[str, Any], config: dict[str, Any]) -> BaseModel:
-    del payload, config
-    raise ProviderError("This capability does not expose provider output payload.")
-
-
 def _normalize_empty(inputs: dict[str, Any]) -> dict[str, Any]:
     del inputs
     return {}
@@ -153,13 +139,6 @@ def _normalize_empty(inputs: dict[str, Any]) -> dict[str, Any]:
 
 def _resolve_empty(config: dict[str, Any]) -> dict[str, Any]:
     return dict(config)
-
-
-def _normalize_model_context(inputs: dict[str, Any]) -> dict[str, Any]:
-    value = inputs.get("model_context", "")
-    if isinstance(value, (list, tuple)):
-        raise ProviderError("Model Context does not support linked `model_context` inputs.")
-    return {"model_context": str(value or "").strip()}
 
 
 def _resolve_ksampler(config: dict[str, Any]) -> dict[str, Any]:
@@ -219,14 +198,6 @@ CAPABILITY_DEFINITIONS: dict[str, CapabilityDefinition] = {
         normalize_config=_normalize_empty,
         resolve_config=_resolve_checkpoint,
         validate_payload=_validate_checkpoint,
-    ),
-    MODEL_CONTEXT_CAPABILITY: CapabilityDefinition(
-        capability_id=MODEL_CONTEXT_CAPABILITY,
-        module_class_type="BigPlayerModelContext",
-        produces_output=False,
-        normalize_config=_normalize_model_context,
-        resolve_config=_resolve_empty,
-        validate_payload=_validate_unused_payload,
     ),
 }
 

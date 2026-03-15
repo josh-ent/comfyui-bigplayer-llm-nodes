@@ -23,61 +23,76 @@ def build_modular_workflow(provider_base_url: str) -> dict:
             },
         },
         "2": {
+            "class_type": "BigPlayerCheckpointState",
+            "inputs": {
+                "checkpoint_name": "sdxl-base-1.0.safetensors",
+                "refiner_checkpoint_name": "<none>",
+            },
+        },
+        "3": {
+            "class_type": "BigPlayerLoRAState",
+            "inputs": {
+                "lora_syntax": "<lora:cinematic_detail:0.8:0.6>",
+                "preset_config": ["2", 0],
+            },
+        },
+        "4": {
+            "class_type": "BigPlayerControlNetState",
+            "inputs": {
+                "controlnets": "depth-controlnet.safetensors",
+                "preset_config": ["3", 0],
+            },
+        },
+        "5": {
             "class_type": "BigPlayerNaturalLanguageRoot",
             "inputs": {
                 "prose": "A cinematic portrait of a cat in a film still.",
                 "provider_config": ["1", 0],
-            },
-        },
-        "3": {
-            "class_type": "BigPlayerBasicPrompt",
-            "inputs": {
-                "session": ["2", 0],
-            },
-        },
-        "4": {
-            "class_type": "BigPlayerKSamplerConfig",
-            "inputs": {
-                "session": ["2", 0],
-            },
-        },
-        "5": {
-            "class_type": "BigPlayerCheckpointPicker",
-            "inputs": {
-                "session": ["2", 0],
+                "preset_config": ["4", 0],
             },
         },
         "6": {
-            "class_type": "BigPlayerTestSink",
+            "class_type": "BigPlayerBasicPrompt",
             "inputs": {
-                "value_1": ["3", 0],
-                "value_2": ["3", 1],
-                "value_3": ["3", 2],
+                "session": ["5", 0],
             },
         },
         "7": {
-            "class_type": "BigPlayerTestKSamplerSink",
+            "class_type": "BigPlayerKSamplerConfig",
             "inputs": {
-                "value_1": ["4", 0],
-                "value_2": ["4", 1],
-                "value_3": ["4", 2],
-                "value_4": ["4", 3],
-                "value_5": ["4", 4],
-                "value_6": ["4", 5],
+                "session": ["5", 0],
             },
         },
         "8": {
-            "class_type": "BigPlayerTestPairSink",
+            "class_type": "BigPlayerCheckpointPicker",
             "inputs": {
-                "value_1": ["5", 0],
-                "value_2": ["5", 1],
+                "session": ["5", 0],
             },
         },
         "9": {
-            "class_type": "BigPlayerModelContext",
+            "class_type": "BigPlayerTestSink",
             "inputs": {
-                "session": ["2", 0],
-                "model_context": "Use an SDXL-style workflow.",
+                "value_1": ["6", 0],
+                "value_2": ["6", 1],
+                "value_3": ["6", 2],
+            },
+        },
+        "10": {
+            "class_type": "BigPlayerTestKSamplerSink",
+            "inputs": {
+                "value_1": ["7", 0],
+                "value_2": ["7", 1],
+                "value_3": ["7", 2],
+                "value_4": ["7", 3],
+                "value_5": ["7", 4],
+                "value_6": ["7", 5],
+            },
+        },
+        "11": {
+            "class_type": "BigPlayerTestPairSink",
+            "inputs": {
+                "value_1": ["8", 0],
+                "value_2": ["8", 1],
             },
         },
     }
@@ -226,12 +241,16 @@ def test_modular_nodes_execute_in_comfyui_with_one_provider_call():
         assert body["stream"] is True
         user_text = body["input"][1]["content"][0]["text"]
         assert "Requested output capabilities" in user_text
+        assert "Preset workflow config" in user_text
+        assert "Workflow preset state provided explicitly" in user_text
         assert "sdxl-base-1.0.safetensors" in user_text
+        assert "<lora:cinematic_detail:0.8:0.6>" in user_text
+        assert "depth-controlnet.safetensors" in user_text
         data = {
             "basic_prompt": {
                 "positive_prompt": "cinematic cat portrait, shallow depth of field",
                 "negative_prompt": "blurry, distorted, low quality",
-                "comments": "Used the model context to bias toward cinematic phrasing.",
+                "comments": "Used the explicit preset state to bias toward cinematic phrasing.",
             },
             "ksampler_config": {
                 "steps": 28,
@@ -264,11 +283,11 @@ def test_modular_nodes_execute_in_comfyui_with_one_provider_call():
             prompt_id = queue_prompt(port, build_modular_workflow(provider_base_url))
             history = wait_for_history(port, prompt_id)
             assert calls["count"] == 1
-            basic_output = history["outputs"]["6"]
-            ksampler_output = history["outputs"]["7"]
-            checkpoint_output = history["outputs"]["8"]
+            basic_output = history["outputs"]["9"]
+            ksampler_output = history["outputs"]["10"]
+            checkpoint_output = history["outputs"]["11"]
             assert basic_output["value_1"][0] == "cinematic cat portrait, shallow depth of field"
-            assert basic_output["value_3"][0].startswith("Used the model context")
+            assert basic_output["value_3"][0].startswith("Used the explicit preset state")
             assert ksampler_output["value_1"][0] == 28
             assert ksampler_output["value_3"][0] == "euler"
             assert checkpoint_output["value_1"][0] == "sdxl-base-1.0.safetensors"

@@ -26,7 +26,7 @@ def _config(provider_model: str = "grok-4-latest") -> ProviderConfig:
 def _operation() -> PromptGenerationOperation:
     return PromptGenerationOperation(
         prose="A cat on a windowsill.",
-        context_blocks=(("Additional model context", "A photoreal SDXL workflow."),),
+        context_blocks=(("Preset workflow config", "A photoreal SDXL workflow."),),
         requested_capabilities=(BASIC_PROMPT_CAPABILITY,),
         capability_configs={BASIC_PROMPT_CAPABILITY: {}},
     )
