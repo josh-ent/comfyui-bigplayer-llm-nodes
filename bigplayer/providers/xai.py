@@ -8,6 +8,7 @@ import httpx
 
 from ..generation.capabilities import (
     BASIC_PROMPT_CAPABILITY,
+    CAPABILITY_DEFINITIONS,
     CHECKPOINT_PICKER_CAPABILITY,
     KSAMPLER_CONFIG_CAPABILITY,
     SPLIT_PROMPT_CAPABILITY,
@@ -313,6 +314,7 @@ class XAIProvider:
         operation: PromptGenerationOperation,
         config: ProviderConfig,
     ) -> RenderedXAIRequest:
+        ordered_capabilities = self._ordered_capability_ids(operation.requested_capabilities)
         response_schema = self._build_response_schema(operation)
         capability_instructions = self._build_capability_instructions(operation)
         system_prompt = """You convert user natural language prose into structured, production-ready ComfyUI workflow data.
@@ -330,7 +332,7 @@ Every capability object must include concise comments explaining the main decisi
             for title, body in operation.context_blocks:
                 sections.append(f"{title}:\n{body.strip()}")
 
-        sections.append(f"Requested output capabilities:\n{', '.join(operation.requested_capabilities)}")
+        sections.append(f"Requested output capabilities:\n{', '.join(ordered_capabilities)}")
         sections.append(
             "Capability requirements:\n"
             + "\n\n".join(instruction.strip() for instruction in capability_instructions if instruction.strip())
@@ -354,7 +356,7 @@ Every capability object must include concise comments explaining the main decisi
     def _build_response_schema(self, operation: PromptGenerationOperation) -> dict[str, Any]:
         properties: dict[str, Any] = {}
         required: list[str] = []
-        for capability_id in operation.requested_capabilities:
+        for capability_id in self._ordered_capability_ids(operation.requested_capabilities):
             fragment = self._fragment(capability_id)
             properties[fragment.schema_name] = fragment.build_schema(operation.capability_configs[capability_id])
             required.append(fragment.schema_name)
@@ -367,10 +369,21 @@ Every capability object must include concise comments explaining the main decisi
 
     def _build_capability_instructions(self, operation: PromptGenerationOperation) -> list[str]:
         instructions: list[str] = []
-        for capability_id in operation.requested_capabilities:
+        for capability_id in self._ordered_capability_ids(operation.requested_capabilities):
             fragment = self._fragment(capability_id)
             instructions.append(fragment.build_prompt(operation.capability_configs[capability_id]))
         return instructions
+
+    def _ordered_capability_ids(self, capability_ids: tuple[str, ...]) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                capability_ids,
+                key=lambda capability_id: (
+                    CAPABILITY_DEFINITIONS[capability_id].composition_priority,
+                    capability_id,
+                ),
+            )
+        )
 
     def _fragment(self, capability_id: str) -> XAIFragmentDefinition:
         fragment = XAI_FRAGMENT_REGISTRY.get(capability_id)

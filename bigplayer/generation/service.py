@@ -242,11 +242,12 @@ class PromptGenerationService:
         *,
         context_blocks: tuple[tuple[str, str], ...],
     ) -> PromptGenerationOperation:
+        ordered_capabilities = tuple(self._sort_capability_ids(output_configs))
         return PromptGenerationOperation(
             prose=prose,
             context_blocks=context_blocks,
-            requested_capabilities=tuple(sorted(output_configs)),
-            capability_configs=output_configs,
+            requested_capabilities=ordered_capabilities,
+            capability_configs={capability_id: output_configs[capability_id] for capability_id in ordered_capabilities},
         )
 
     def _build_context_blocks(
@@ -302,7 +303,13 @@ class PromptGenerationService:
                 )
             )
 
-        discovered.sort(key=lambda item: (item.capability_id, self._node_sort_key(item.node_id)))
+        discovered.sort(
+            key=lambda item: (
+                CAPABILITY_DEFINITIONS[item.capability_id].composition_priority,
+                item.capability_id,
+                self._node_sort_key(item.node_id),
+            )
+        )
         return discovered
 
     def _consolidate_capabilities(
@@ -362,6 +369,15 @@ class PromptGenerationService:
 
     def _node_sort_key(self, node_id: str) -> tuple[int, str]:
         return (0, f"{int(node_id):08d}") if str(node_id).isdigit() else (1, str(node_id))
+
+    def _sort_capability_ids(self, capability_ids) -> list[str]:
+        return sorted(
+            capability_ids,
+            key=lambda capability_id: (
+                CAPABILITY_DEFINITIONS[capability_id].composition_priority,
+                capability_id,
+            ),
+        )
 
     def _has_prompt_debug(self, prompt: dict[str, Any], root_node_id: str) -> bool:
         for node in prompt.values():

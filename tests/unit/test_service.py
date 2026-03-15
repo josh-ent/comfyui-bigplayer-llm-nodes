@@ -114,9 +114,9 @@ def test_service_discovers_root_modules_and_builds_composed_operation(monkeypatc
     operation = provider.operations[0]
     assert operation.kind is OperationKind.PROMPT_GENERATION
     assert operation.requested_capabilities == (
-        BASIC_PROMPT_CAPABILITY,
         CHECKPOINT_PICKER_CAPABILITY,
         KSAMPLER_CONFIG_CAPABILITY,
+        BASIC_PROMPT_CAPABILITY,
     )
     assert any("sdxl-base.safetensors" in block[1] for block in operation.context_blocks)
     assert any("refiner.safetensors" in block[1] for block in operation.context_blocks)
@@ -192,6 +192,31 @@ def test_duplicate_identical_modules_share_one_capability_request():
     resolved = service.resolve_capability(session, BASIC_PROMPT_CAPABILITY)
     assert provider.operations[0].requested_capabilities == (BASIC_PROMPT_CAPABILITY,)
     assert resolved.positive_prompt == "cinematic cat portrait"
+
+
+def test_service_orders_capabilities_from_workflow_definition_to_prompt_generation(monkeypatch):
+    monkeypatch.setattr(capabilities, "list_sampler_names", lambda: ["euler"])
+    monkeypatch.setattr(capabilities, "list_scheduler_names", lambda: ["karras"])
+    monkeypatch.setattr(capabilities, "list_available_checkpoints", lambda: ["sdxl-base.safetensors"])
+    provider = FakeProvider()
+    service = PromptGenerationService(providers={"xAI": provider})
+
+    service.begin_session(
+        prose="A cinematic portrait of a cat.",
+        provider_bundle=_provider_bundle(),
+        dynprompt=_prompt(
+            ("2", "BigPlayerBasicPrompt", {"session": ["root", 0]}),
+            ("3", "BigPlayerKSamplerConfig", {"session": ["root", 0]}),
+            ("4", "BigPlayerCheckpointPicker", {"session": ["root", 0]}),
+        ),
+        root_node_id="root",
+    )
+
+    assert provider.operations[0].requested_capabilities == (
+        CHECKPOINT_PICKER_CAPABILITY,
+        KSAMPLER_CONFIG_CAPABILITY,
+        BASIC_PROMPT_CAPABILITY,
+    )
 
 
 def test_no_output_modules_fail_before_provider_call():

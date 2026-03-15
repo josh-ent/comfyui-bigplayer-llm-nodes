@@ -149,6 +149,7 @@ class CapabilityDefinition:
     capability_id: str
     module_class_type: str
     produces_output: bool
+    composition_priority: int
     normalize_config: Callable[[dict[str, Any]], dict[str, Any]]
     resolve_config: Callable[[dict[str, Any]], dict[str, Any]]
     validate_payload: Callable[[dict[str, Any], dict[str, Any]], BaseModel]
@@ -159,6 +160,7 @@ CAPABILITY_DEFINITIONS: dict[str, CapabilityDefinition] = {
         capability_id=BASIC_PROMPT_CAPABILITY,
         module_class_type="BigPlayerBasicPrompt",
         produces_output=True,
+        composition_priority=300,
         normalize_config=_normalize_empty,
         resolve_config=_resolve_empty,
         validate_payload=_validate_basic_prompt,
@@ -167,6 +169,7 @@ CAPABILITY_DEFINITIONS: dict[str, CapabilityDefinition] = {
         capability_id=SPLIT_PROMPT_CAPABILITY,
         module_class_type="BigPlayerSplitPrompt",
         produces_output=True,
+        composition_priority=300,
         normalize_config=_normalize_empty,
         resolve_config=_resolve_empty,
         validate_payload=_validate_split_prompt,
@@ -175,6 +178,7 @@ CAPABILITY_DEFINITIONS: dict[str, CapabilityDefinition] = {
         capability_id=KSAMPLER_CONFIG_CAPABILITY,
         module_class_type="BigPlayerKSamplerConfig",
         produces_output=True,
+        composition_priority=200,
         normalize_config=_normalize_empty,
         resolve_config=_resolve_ksampler,
         validate_payload=_validate_ksampler,
@@ -183,6 +187,7 @@ CAPABILITY_DEFINITIONS: dict[str, CapabilityDefinition] = {
         capability_id=CHECKPOINT_PICKER_CAPABILITY,
         module_class_type="BigPlayerCheckpointPicker",
         produces_output=True,
+        composition_priority=100,
         normalize_config=_normalize_empty,
         resolve_config=_resolve_checkpoint,
         validate_payload=_validate_checkpoint,

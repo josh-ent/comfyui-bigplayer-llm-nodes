@@ -7,7 +7,11 @@ import httpx
 import pytest
 import respx
 
-from bigplayer.generation.capabilities import BASIC_PROMPT_CAPABILITY
+from bigplayer.generation.capabilities import (
+    BASIC_PROMPT_CAPABILITY,
+    CHECKPOINT_PICKER_CAPABILITY,
+    KSAMPLER_CONFIG_CAPABILITY,
+)
 from bigplayer.errors import MalformedProviderResponseError, ProviderError, UnsupportedOperationError
 from bigplayer.generation.operations import PromptGenerationOperation
 from bigplayer.providers.base import InvocationContext, ProviderConfig, ProviderDebugRecord
@@ -88,6 +92,41 @@ def test_xai_provider_renders_generic_prompt_generation_operation():
     assert payload["text"]["format"]["strict"] is True
     assert payload["stream"] is True
     assert "basic_prompt" in payload["text"]["format"]["schema"]["properties"]
+
+
+def test_xai_provider_renders_capability_requirements_in_provider_priority_order():
+    operation = PromptGenerationOperation(
+        prose="A cat on a windowsill.",
+        context_blocks=(),
+        requested_capabilities=(
+            BASIC_PROMPT_CAPABILITY,
+            KSAMPLER_CONFIG_CAPABILITY,
+            CHECKPOINT_PICKER_CAPABILITY,
+        ),
+        capability_configs={
+            BASIC_PROMPT_CAPABILITY: {},
+            KSAMPLER_CONFIG_CAPABILITY: {
+                "sampler_names": ["euler"],
+                "scheduler_names": ["karras"],
+            },
+            CHECKPOINT_PICKER_CAPABILITY: {
+                "available_checkpoints": ["sdxl-base.safetensors"],
+            },
+        },
+    )
+
+    rendered = XAIProvider().render_operation(operation, _config())
+
+    checkpoint_index = rendered.user_prompt.index("Capability `checkpoint_picker`:")
+    ksampler_index = rendered.user_prompt.index("Capability `ksampler_config`:")
+    prompt_index = rendered.user_prompt.index("Capability `basic_prompt`:")
+    assert checkpoint_index < ksampler_index < prompt_index
+    assert "Requested output capabilities:\ncheckpoint_picker, ksampler_config, basic_prompt" in rendered.user_prompt
+    assert list(rendered.schema["properties"]) == [
+        "checkpoint_picker",
+        "ksampler_config",
+        "basic_prompt",
+    ]
 
 
 @respx.mock
