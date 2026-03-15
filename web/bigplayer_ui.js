@@ -37,25 +37,25 @@ function registerTypeColors() {
   assignTypeColors(ensureTypeColorMap(app.canvas, "default_connection_color_byType"));
   assignTypeColors(ensureTypeColorMap(app.canvas, "default_connection_color_byTypeOff"));
   assignTypeColors(ensureTypeColorMap(app.canvas, "default_connection_color_byTypeOn"));
+  installColourGetterOverrides(app.canvas?.colourGetter);
 }
 
-function applySlotTypeColors(node) {
-  for (const slots of [node.inputs, node.outputs]) {
-    if (!Array.isArray(slots)) {
-      continue;
-    }
-    for (const slot of slots) {
-      const color = TYPE_COLORS[slot?.type];
-      if (!color) {
-        continue;
-      }
-      slot.color = color;
-      slot.color_on = color;
-      slot.color_off = color;
-      slot.link_color = color;
-    }
+function installColourGetterOverrides(colourGetter) {
+  if (!colourGetter || colourGetter.__bigplayerTypeColorsInstalled) {
+    return;
   }
-  node.setDirtyCanvas(true, true);
+
+  const originalConnected = colourGetter.getConnectedColor?.bind(colourGetter);
+  const originalDisconnected = colourGetter.getDisconnectedColor?.bind(colourGetter);
+
+  if (originalConnected) {
+    colourGetter.getConnectedColor = (type) => TYPE_COLORS[type] ?? originalConnected(type);
+  }
+  if (originalDisconnected) {
+    colourGetter.getDisconnectedColor = (type) => TYPE_COLORS[type] ?? originalDisconnected(type);
+  }
+
+  colourGetter.__bigplayerTypeColorsInstalled = true;
 }
 
 function applyProviderModelOptions(node, providerModels) {
@@ -108,7 +108,7 @@ function installTypeColorBehavior(nodeType) {
   nodeType.prototype.onNodeCreated = function () {
     const result = originalOnNodeCreated ? originalOnNodeCreated.apply(this, arguments) : undefined;
     registerTypeColors();
-    applySlotTypeColors(this);
+    this.setDirtyCanvas?.(true, true);
     return result;
   };
 
@@ -116,7 +116,7 @@ function installTypeColorBehavior(nodeType) {
   nodeType.prototype.onConfigure = function () {
     const result = originalOnConfigure ? originalOnConfigure.apply(this, arguments) : undefined;
     registerTypeColors();
-    applySlotTypeColors(this);
+    this.setDirtyCanvas?.(true, true);
     return result;
   };
 }

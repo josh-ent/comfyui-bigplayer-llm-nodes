@@ -206,52 +206,18 @@ test.describe("BigPlayer ComfyUI frontend wiring", () => {
             Object.keys(expectedTypeColors).map((key) => [key, globalThis.app.canvas.default_connection_color_byTypeOff[key]]),
           ),
         },
-        slotColors: {
+        colourGetterColors: {
           providerConfig: {
-            output: providerNode.outputs[0]
-              ? {
-                  color: providerNode.outputs[0].color,
-                  color_on: providerNode.outputs[0].color_on,
-                  color_off: providerNode.outputs[0].color_off,
-                  link_color: providerNode.outputs[0].link_color,
-                }
-              : null,
-            input: findSlot(rootNode.inputs, "provider_config")
-              ? {
-                  color: findSlot(rootNode.inputs, "provider_config").color,
-                  color_on: findSlot(rootNode.inputs, "provider_config").color_on,
-                  color_off: findSlot(rootNode.inputs, "provider_config").color_off,
-                  link_color: findSlot(rootNode.inputs, "provider_config").link_color,
-                }
-              : null,
+            connected: globalThis.app.canvas.colourGetter.getConnectedColor("BIGPLAYER_LLM_PROVIDER"),
+            disconnected: globalThis.app.canvas.colourGetter.getDisconnectedColor("BIGPLAYER_LLM_PROVIDER"),
           },
           session: {
-            output: rootNode.outputs[0]
-              ? {
-                  color: rootNode.outputs[0].color,
-                  color_on: rootNode.outputs[0].color_on,
-                  color_off: rootNode.outputs[0].color_off,
-                  link_color: rootNode.outputs[0].link_color,
-                }
-              : null,
+            connected: globalThis.app.canvas.colourGetter.getConnectedColor("BIGPLAYER_LLM_SESSION"),
+            disconnected: globalThis.app.canvas.colourGetter.getDisconnectedColor("BIGPLAYER_LLM_SESSION"),
           },
           presetConfig: {
-            output: checkpointStateNode.outputs[0]
-              ? {
-                  color: checkpointStateNode.outputs[0].color,
-                  color_on: checkpointStateNode.outputs[0].color_on,
-                  color_off: checkpointStateNode.outputs[0].color_off,
-                  link_color: checkpointStateNode.outputs[0].link_color,
-                }
-              : null,
-            input: findSlot(rootNode.inputs, "preset_config")
-              ? {
-                  color: findSlot(rootNode.inputs, "preset_config").color,
-                  color_on: findSlot(rootNode.inputs, "preset_config").color_on,
-                  color_off: findSlot(rootNode.inputs, "preset_config").color_off,
-                  link_color: findSlot(rootNode.inputs, "preset_config").link_color,
-                }
-              : null,
+            connected: globalThis.app.canvas.colourGetter.getConnectedColor("BIGPLAYER_PRESET_CONFIG"),
+            disconnected: globalThis.app.canvas.colourGetter.getDisconnectedColor("BIGPLAYER_PRESET_CONFIG"),
           },
         },
       };
@@ -261,35 +227,17 @@ test.describe("BigPlayer ComfyUI frontend wiring", () => {
     expect(state.canvasTypeColors.byType).toEqual(typeColors);
     expect(state.canvasTypeColors.byTypeOn).toEqual(typeColors);
     expect(state.canvasTypeColors.byTypeOff).toEqual(typeColors);
-    expect(state.slotColors.providerConfig.output).toEqual({
-      color: typeColors.BIGPLAYER_LLM_PROVIDER,
-      color_on: typeColors.BIGPLAYER_LLM_PROVIDER,
-      color_off: typeColors.BIGPLAYER_LLM_PROVIDER,
-      link_color: typeColors.BIGPLAYER_LLM_PROVIDER,
+    expect(state.colourGetterColors.providerConfig).toEqual({
+      connected: typeColors.BIGPLAYER_LLM_PROVIDER,
+      disconnected: typeColors.BIGPLAYER_LLM_PROVIDER,
     });
-    expect(state.slotColors.providerConfig.input).toEqual({
-      color: typeColors.BIGPLAYER_LLM_PROVIDER,
-      color_on: typeColors.BIGPLAYER_LLM_PROVIDER,
-      color_off: typeColors.BIGPLAYER_LLM_PROVIDER,
-      link_color: typeColors.BIGPLAYER_LLM_PROVIDER,
+    expect(state.colourGetterColors.session).toEqual({
+      connected: typeColors.BIGPLAYER_LLM_SESSION,
+      disconnected: typeColors.BIGPLAYER_LLM_SESSION,
     });
-    expect(state.slotColors.session.output).toEqual({
-      color: typeColors.BIGPLAYER_LLM_SESSION,
-      color_on: typeColors.BIGPLAYER_LLM_SESSION,
-      color_off: typeColors.BIGPLAYER_LLM_SESSION,
-      link_color: typeColors.BIGPLAYER_LLM_SESSION,
-    });
-    expect(state.slotColors.presetConfig.output).toEqual({
-      color: typeColors.BIGPLAYER_PRESET_CONFIG,
-      color_on: typeColors.BIGPLAYER_PRESET_CONFIG,
-      color_off: typeColors.BIGPLAYER_PRESET_CONFIG,
-      link_color: typeColors.BIGPLAYER_PRESET_CONFIG,
-    });
-    expect(state.slotColors.presetConfig.input).toEqual({
-      color: typeColors.BIGPLAYER_PRESET_CONFIG,
-      color_on: typeColors.BIGPLAYER_PRESET_CONFIG,
-      color_off: typeColors.BIGPLAYER_PRESET_CONFIG,
-      link_color: typeColors.BIGPLAYER_PRESET_CONFIG,
+    expect(state.colourGetterColors.presetConfig).toEqual({
+      connected: typeColors.BIGPLAYER_PRESET_CONFIG,
+      disconnected: typeColors.BIGPLAYER_PRESET_CONFIG,
     });
   });
 });
