@@ -88,26 +88,52 @@ def _docker(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     )
 
 
+@contextmanager
+def _image_build_lock(timeout_seconds: float = 300.0):
+    lock_dir = Path(tempfile.gettempdir()) / f"{IMAGE_TAG.replace(':', '_')}.lock"
+    deadline = time.time() + timeout_seconds
+
+    while True:
+        try:
+            lock_dir.mkdir()
+            break
+        except FileExistsError:
+            if time.time() >= deadline:
+                raise RuntimeError(f"Timed out waiting for Docker image build lock `{lock_dir}`.")
+            time.sleep(0.25)
+
+    try:
+        yield
+    finally:
+        try:
+            lock_dir.rmdir()
+        except OSError:
+            pass
+
+
 def ensure_test_image() -> None:
     image_check = _docker("image", "inspect", IMAGE_TAG, check=False)
     if image_check.returncode == 0:
         return
 
-    _docker(
-        "build",
-        "--build-arg",
-        f"COMFYUI_REF={COMFYUI_REF}",
-        "-t",
-        IMAGE_TAG,
-        "-f",
-        str(DOCKERFILE_PATH),
-        str(DOCKERFILE_PATH.parent),
-    )
+    with _image_build_lock():
+        image_check = _docker("image", "inspect", IMAGE_TAG, check=False)
+        if image_check.returncode == 0:
+            return
+        _docker(
+            "build",
+            "--build-arg",
+            f"COMFYUI_REF={COMFYUI_REF}",
+            "-t",
+            IMAGE_TAG,
+            "-f",
+            str(DOCKERFILE_PATH),
+            str(DOCKERFILE_PATH.parent),
+        )
 
 
 @contextmanager
 def comfy_server(*, checkpoints: tuple[str, ...] = (), port: int | None = None):
-    ensure_test_image()
     bound_port = port if port is not None else find_free_port()
     container_name = f"bigplayer-comfyui-{uuid.uuid4().hex[:8]}"
 

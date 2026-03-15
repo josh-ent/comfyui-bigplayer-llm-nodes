@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from tests.comfyui_runtime import comfy_server
+from tests.comfyui_runtime import comfy_server, ensure_test_image
 
 
 DEFAULT_PORT = 18188
@@ -28,6 +28,7 @@ def _watch_stdin_for_shutdown(shutdown: threading.Event) -> None:
 def main() -> None:
     port = int(os.environ.get("BIGPLAYER_COMFYUI_UI_TEST_PORT", str(DEFAULT_PORT)))
     shutdown = threading.Event()
+    ensure_test_image()
 
     def handle_signal(signum, frame):
         del signum, frame

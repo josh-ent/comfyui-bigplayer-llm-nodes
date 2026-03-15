@@ -147,7 +147,7 @@ npm install
 npx playwright install chromium
 ```
 
-Integration tests no longer depend on an untracked local ComfyUI checkout. They build a pinned ComfyUI Docker image on first use and mount the current working tree into the container's `custom_nodes` directory so tests always exercise the current source directly.
+Integration tests no longer depend on an untracked local ComfyUI checkout. They build a pinned ComfyUI Docker image once per test session and mount the current working tree into the container's `custom_nodes` directory so tests always exercise the current source directly.
 
 Container prerequisites:
 - Docker Desktop or another local Docker runtime must be available.
@@ -164,8 +164,10 @@ python -m pytest tests/unit
 Run the mocked ComfyUI integration suite:
 
 ```bash
-python -m pytest tests/integration -m integration
+python -m pytest tests/integration -m integration -n 2
 ```
+
+This keeps one fresh ComfyUI container per test for isolation, but prepares the Docker image once and runs isolated tests in parallel.
 
 Run the Playwright UI suite against the same Docker-backed ComfyUI test runtime:
 
