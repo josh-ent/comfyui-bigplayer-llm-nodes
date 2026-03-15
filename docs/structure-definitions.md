@@ -53,6 +53,7 @@ Produced by:
 Consumed by:
 
 - `BigPlayer Basic Prompt`
+- `BigPlayer Prompt Debug`
 - `BigPlayer Split Prompt`
 - `BigPlayer KSampler Config`
 - `BigPlayer Checkpoint Picker`

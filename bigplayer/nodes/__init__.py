@@ -4,6 +4,7 @@ from .prompting import (
     BigPlayerKSamplerConfig,
     BigPlayerLLMProvider,
     BigPlayerNaturalLanguageRoot,
+    BigPlayerPromptDebug,
     BigPlayerSplitPrompt,
 )
 from .state_indication import (
@@ -16,6 +17,7 @@ from .state_indication import (
 NODE_CLASS_MAPPINGS = {
     "BigPlayerLLMProvider": BigPlayerLLMProvider,
     "BigPlayerNaturalLanguageRoot": BigPlayerNaturalLanguageRoot,
+    "BigPlayerPromptDebug": BigPlayerPromptDebug,
     "BigPlayerBasicPrompt": BigPlayerBasicPrompt,
     "BigPlayerSplitPrompt": BigPlayerSplitPrompt,
     "BigPlayerKSamplerConfig": BigPlayerKSamplerConfig,
@@ -28,6 +30,7 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "BigPlayerLLMProvider": "BigPlayer LLM Provider",
     "BigPlayerNaturalLanguageRoot": "BigPlayer Natural Language Root",
+    "BigPlayerPromptDebug": "BigPlayer Prompt Debug",
     "BigPlayerBasicPrompt": "BigPlayer Basic Prompt",
     "BigPlayerSplitPrompt": "BigPlayer Split Prompt",
     "BigPlayerKSamplerConfig": "BigPlayer KSampler Config",
@@ -46,6 +49,7 @@ __all__ = [
     "BigPlayerLLMProvider",
     "BigPlayerLoRAState",
     "BigPlayerNaturalLanguageRoot",
+    "BigPlayerPromptDebug",
     "BigPlayerSplitPrompt",
     "NODE_CLASS_MAPPINGS",
     "NODE_DISPLAY_NAME_MAPPINGS",

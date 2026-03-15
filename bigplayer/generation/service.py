@@ -9,11 +9,12 @@ from .capabilities import CAPABILITY_DEFINITIONS, MODULE_CLASS_TO_CAPABILITY
 from .operations import PromptGenerationOperation
 from .schemas import validate_result
 from ..errors import ProviderError
-from ..providers.base import InvocationContext, ProviderConfig, redact_secret
+from ..providers.base import InvocationContext, ProviderConfig, ProviderDebugRecord, redact_secret
 from ..providers.registry import REGISTERED_PROVIDERS
 from ..state.preset import normalize_preset_config, render_preset_config, serialize_preset_config
 
 SCHEMA_VERSION = "modular-v3"
+PROMPT_DEBUG_CLASS_TYPE = "BigPlayerPromptDebug"
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,13 @@ class CapabilityInstance:
 class SessionRecord:
     capability_configs: dict[str, dict[str, Any]]
     payload: dict[str, dict[str, Any]]
+    debug: ProviderDebugRecord | None
+
+
+@dataclass(frozen=True)
+class CachedSessionValue:
+    payload: dict[str, dict[str, Any]]
+    debug: ProviderDebugRecord | None
 
 
 class SessionRegistry:
@@ -86,6 +94,7 @@ class PromptGenerationService:
         invocation_context = invocation_context or InvocationContext()
         self._validate_provider_bundle(provider_bundle)
         prompt = self._extract_prompt(dynprompt)
+        debug_enabled = self._has_prompt_debug(prompt, root_node_id)
         capability_instances = self._discover_capabilities(prompt, root_node_id)
         capability_configs = self._consolidate_capabilities(capability_instances)
         output_configs = {
@@ -105,6 +114,7 @@ class PromptGenerationService:
             provider_bundle,
             capability_configs,
             preset_bundle=preset_bundle,
+            debug_enabled=debug_enabled,
         )
         session_handle = LLMSessionHandle(
             session_id=stable_hash({"root_node_id": root_node_id, "cache_key": cache_key.value}),
@@ -118,7 +128,11 @@ class PromptGenerationService:
                 invocation_context.report_status("Reusing cached modular LLM result.")
                 self._sessions.set(
                     session_handle.session_id,
-                    SessionRecord(capability_configs=capability_configs, payload=cached),
+                    SessionRecord(
+                        capability_configs=capability_configs,
+                        payload=cached.payload,
+                        debug=cached.debug,
+                    ),
                 )
                 return session_handle
 
@@ -126,6 +140,11 @@ class PromptGenerationService:
             prose,
             output_configs,
             context_blocks=context_blocks,
+        )
+        debug_record = ProviderDebugRecord() if debug_enabled else None
+        provider_context = InvocationContext(
+            status_callback=invocation_context.status_callback,
+            debug_record=debug_record,
         )
         invocation_context.report_status(
             f"Calling {provider_bundle.provider} with model {provider_bundle.provider_model}..."
@@ -138,15 +157,22 @@ class PromptGenerationService:
                 api_key=provider_bundle.api_key,
                 provider_base_url=provider_bundle.provider_base_url,
             ),
-            invocation_context,
+            provider_context,
         )
         invocation_context.report_status("Validating structured provider response...")
         validated = validate_result(output_configs, payload)
         if provider_bundle.assume_determinism:
-            self._cache.set(cache_key, validated)
+            self._cache.set(
+                cache_key,
+                CachedSessionValue(payload=validated, debug=self._freeze_debug_record(debug_record)),
+            )
         self._sessions.set(
             session_handle.session_id,
-            SessionRecord(capability_configs=capability_configs, payload=validated),
+            SessionRecord(
+                capability_configs=capability_configs,
+                payload=validated,
+                debug=self._freeze_debug_record(debug_record),
+            ),
         )
         invocation_context.report_status("Modular prompt generation complete.")
         return session_handle
@@ -271,6 +297,7 @@ class PromptGenerationService:
         capability_configs: dict[str, dict[str, Any]],
         *,
         preset_bundle,
+        debug_enabled: bool,
     ) -> CacheKey:
         return CacheKey(
             stable_hash(
@@ -283,9 +310,18 @@ class PromptGenerationService:
                     "provider_base_url": provider_bundle.provider_base_url.strip(),
                     "capability_configs": capability_configs,
                     "preset_config": serialize_preset_config(preset_bundle),
+                    "debug_enabled": debug_enabled,
                 }
             )
         )
+
+    def resolve_debug(self, session: LLMSessionHandle) -> ProviderDebugRecord:
+        record = self._sessions.get(session.session_id)
+        if record is None:
+            raise ProviderError("No shared LLM result was recorded for this session.")
+        if record.debug is None:
+            raise ProviderError("Prompt Debug was not attached to the Natural Language Root for this session.")
+        return record.debug
 
     def _is_direct_root_link(self, value: Any, root_node_id: str) -> bool:
         if not isinstance(value, (list, tuple)) or len(value) < 2:
@@ -294,3 +330,22 @@ class PromptGenerationService:
 
     def _node_sort_key(self, node_id: str) -> tuple[int, str]:
         return (0, f"{int(node_id):08d}") if str(node_id).isdigit() else (1, str(node_id))
+
+    def _has_prompt_debug(self, prompt: dict[str, Any], root_node_id: str) -> bool:
+        for node in prompt.values():
+            if not isinstance(node, dict):
+                continue
+            if str(node.get("class_type")) != PROMPT_DEBUG_CLASS_TYPE:
+                continue
+            inputs = node.get("inputs", {})
+            if self._is_direct_root_link(inputs.get("session"), root_node_id):
+                return True
+        return False
+
+    def _freeze_debug_record(self, debug_record: ProviderDebugRecord | None) -> ProviderDebugRecord | None:
+        if debug_record is None:
+            return None
+        return ProviderDebugRecord(
+            request_text=debug_record.request_text,
+            response_text=debug_record.response_text,
+        )

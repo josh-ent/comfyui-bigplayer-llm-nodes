@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from ..generation.capabilities import (
@@ -25,13 +26,16 @@ class NoProvider:
         config: ProviderConfig,
         context: InvocationContext | None = None,
     ) -> dict[str, Any]:
-        if context is not None:
-            context.report_status("Running local No Provider passthrough.")
+        context = context or InvocationContext()
+        context.report_status("Running local No Provider passthrough.")
         self._validate_model(config.provider_model)
         kind = getattr(operation, "kind", None)
         if kind != OperationKind.PROMPT_GENERATION:
             raise UnsupportedOperationError(f"No Provider does not support operation `{kind}`.")
-        return self._prompt_generation(operation, config)
+        context.set_request_text(self._render_request_text(operation, config))
+        output = self._prompt_generation(operation, config)
+        context.set_response_text(json.dumps(output, sort_keys=True, indent=2, ensure_ascii=True))
+        return output
 
     def _prompt_generation(
         self,
@@ -96,3 +100,14 @@ class NoProvider:
     def _validate_model(self, provider_model: str) -> None:
         if provider_model not in NO_PROVIDER_MODELS:
             raise ProviderError(f"No Provider does not support model `{provider_model}`.")
+
+    def _render_request_text(self, operation: PromptGenerationOperation, config: ProviderConfig) -> str:
+        sections = [
+            f"Provider model: {config.provider_model}",
+            f"User prose:\n{operation.prose.strip()}",
+            f"Requested output capabilities:\n{', '.join(operation.requested_capabilities)}",
+        ]
+        if operation.context_blocks:
+            context_lines = [f"{title}:\n{body.strip()}" for title, body in operation.context_blocks]
+            sections.append("Context blocks:\n" + "\n\n".join(context_lines))
+        return "\n\n".join(section for section in sections if section.strip())

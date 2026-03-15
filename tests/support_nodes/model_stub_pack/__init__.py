@@ -106,6 +106,32 @@ class BigPlayerTestPairSink:
         }
 
 
+class BigPlayerTestTextPairSink:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "value_1": ("STRING", {"forceInput": True}),
+                "value_2": ("STRING", {"forceInput": True}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("value_1", "value_2")
+    FUNCTION = "collect"
+    CATEGORY = "Testing/BigPlayer"
+    OUTPUT_NODE = True
+
+    def collect(self, value_1, value_2):
+        return {
+            "ui": {
+                "value_1": [value_1],
+                "value_2": [value_2],
+            },
+            "result": (value_1, value_2),
+        }
+
+
 class BigPlayerTestKSamplerSink:
     @classmethod
     def INPUT_TYPES(cls):
@@ -145,6 +171,7 @@ NODE_CLASS_MAPPINGS = {
     "BigPlayerTestSink": BigPlayerTestSink,
     "BigPlayerTestSplitSink": BigPlayerTestSplitSink,
     "BigPlayerTestPairSink": BigPlayerTestPairSink,
+    "BigPlayerTestTextPairSink": BigPlayerTestTextPairSink,
     "BigPlayerTestKSamplerSink": BigPlayerTestKSamplerSink,
 }
 
@@ -153,5 +180,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "BigPlayerTestSink": "BigPlayer Test Sink",
     "BigPlayerTestSplitSink": "BigPlayer Test Split Sink",
     "BigPlayerTestPairSink": "BigPlayer Test Pair Sink",
+    "BigPlayerTestTextPairSink": "BigPlayer Test Text Pair Sink",
     "BigPlayerTestKSamplerSink": "BigPlayer Test KSampler Sink",
 }

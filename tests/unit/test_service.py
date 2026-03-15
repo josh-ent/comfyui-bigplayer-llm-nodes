@@ -33,6 +33,8 @@ class FakeProvider:
         self.operations.append(operation)
         self.configs.append(config)
         self.contexts.append(context)
+        if context is not None:
+            context.set_request_text(f"request for {', '.join(operation.requested_capabilities)}")
         payload: dict[str, dict] = {}
         if BASIC_PROMPT_CAPABILITY in operation.requested_capabilities:
             payload[BASIC_PROMPT_CAPABILITY] = {
@@ -56,6 +58,8 @@ class FakeProvider:
                 "checkpoint_name": checkpoints[0],
                 "comments": "Best match for the prose.",
             }
+        if context is not None:
+            context.set_response_text("raw provider response text")
         return payload
 
 
@@ -119,6 +123,7 @@ def test_service_discovers_root_modules_and_builds_composed_operation(monkeypatc
     assert any("<lora:detail:0.8:0.6>" in block[1] for block in operation.context_blocks)
     assert any("depth.safetensors" in block[1] for block in operation.context_blocks)
     assert isinstance(provider.contexts[0], InvocationContext)
+    assert provider.contexts[0].debug_record is None
     assert session.root_node_id == "root"
 
 
@@ -127,7 +132,10 @@ def test_service_caches_when_assume_determinism_is_enabled(monkeypatch):
     monkeypatch.setattr(capabilities, "list_scheduler_names", lambda: ["karras"])
     provider = FakeProvider()
     service = PromptGenerationService(providers={"xAI": provider})
-    dynprompt = _prompt(("2", "BigPlayerBasicPrompt", {"session": ["root", 0]}))
+    dynprompt = _prompt(
+        ("2", "BigPlayerBasicPrompt", {"session": ["root", 0]}),
+        ("3", "BigPlayerPromptDebug", {"session": ["root", 0]}),
+    )
 
     first = service.begin_session(
         prose="A cinematic portrait of a cat.",
@@ -143,6 +151,9 @@ def test_service_caches_when_assume_determinism_is_enabled(monkeypatch):
     )
     assert first.cache_key == second.cache_key
     assert len(provider.operations) == 1
+    debug = service.resolve_debug(second)
+    assert debug.request_text == "request for basic_prompt"
+    assert debug.response_text == "raw provider response text"
 
 
 def test_service_reexecutes_when_assume_determinism_is_disabled():
@@ -201,7 +212,10 @@ def test_no_output_modules_fail_before_provider_call():
 def test_cache_key_changes_when_preset_config_changes():
     provider = FakeProvider()
     service = PromptGenerationService(providers={"xAI": provider})
-    dynprompt = _prompt(("2", "BigPlayerBasicPrompt", {"session": ["root", 0]}))
+    dynprompt = _prompt(
+        ("2", "BigPlayerBasicPrompt", {"session": ["root", 0]}),
+        ("3", "BigPlayerPromptDebug", {"session": ["root", 0]}),
+    )
 
     first = service.begin_session(
         prose="A cinematic portrait of a cat.",
@@ -272,4 +286,64 @@ def test_cache_key_changes_when_checkpoint_inventory_changes(monkeypatch):
     )
 
     assert first.cache_key != second.cache_key
+    assert len(provider.operations) == 2
+
+
+def test_service_exposes_provider_owned_debug_text():
+    provider = FakeProvider()
+    service = PromptGenerationService(providers={"xAI": provider})
+
+    session = service.begin_session(
+        prose="A cinematic portrait of a cat.",
+        provider_bundle=_provider_bundle(),
+        dynprompt=_prompt(
+            ("2", "BigPlayerBasicPrompt", {"session": ["root", 0]}),
+            ("3", "BigPlayerPromptDebug", {"session": ["root", 0]}),
+        ),
+        root_node_id="root",
+    )
+
+    debug = service.resolve_debug(session)
+    assert debug.request_text == "request for basic_prompt"
+    assert debug.response_text == "raw provider response text"
+
+
+def test_service_skips_provider_debug_capture_without_prompt_debug():
+    provider = FakeProvider()
+    service = PromptGenerationService(providers={"xAI": provider})
+
+    session = service.begin_session(
+        prose="A cinematic portrait of a cat.",
+        provider_bundle=_provider_bundle(),
+        dynprompt=_prompt(("2", "BigPlayerBasicPrompt", {"session": ["root", 0]})),
+        root_node_id="root",
+    )
+
+    assert provider.contexts[0].debug_record is None
+    with pytest.raises(ProviderError) as exc:
+        service.resolve_debug(session)
+    assert "Prompt Debug was not attached" in str(exc.value)
+
+
+def test_cache_key_changes_when_prompt_debug_attachment_changes():
+    provider = FakeProvider()
+    service = PromptGenerationService(providers={"xAI": provider})
+
+    without_debug = service.begin_session(
+        prose="A cinematic portrait of a cat.",
+        provider_bundle=_provider_bundle(),
+        dynprompt=_prompt(("2", "BigPlayerBasicPrompt", {"session": ["root", 0]})),
+        root_node_id="root",
+    )
+    with_debug = service.begin_session(
+        prose="A cinematic portrait of a cat.",
+        provider_bundle=_provider_bundle(),
+        dynprompt=_prompt(
+            ("2", "BigPlayerBasicPrompt", {"session": ["root", 0]}),
+            ("3", "BigPlayerPromptDebug", {"session": ["root", 0]}),
+        ),
+        root_node_id="root",
+    )
+
+    assert without_debug.cache_key != with_debug.cache_key
     assert len(provider.operations) == 2

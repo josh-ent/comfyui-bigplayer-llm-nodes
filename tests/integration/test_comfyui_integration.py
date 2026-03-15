@@ -69,6 +69,12 @@ def build_modular_workflow(provider_base_url: str) -> dict:
                 "session": ["5", 0],
             },
         },
+        "12": {
+            "class_type": "BigPlayerPromptDebug",
+            "inputs": {
+                "session": ["5", 0],
+            },
+        },
         "9": {
             "class_type": "BigPlayerTestSink",
             "inputs": {
@@ -93,6 +99,13 @@ def build_modular_workflow(provider_base_url: str) -> dict:
             "inputs": {
                 "value_1": ["8", 0],
                 "value_2": ["8", 1],
+            },
+        },
+        "13": {
+            "class_type": "BigPlayerTestTextPairSink",
+            "inputs": {
+                "value_1": ["12", 0],
+                "value_2": ["12", 1],
             },
         },
     }
@@ -129,6 +142,19 @@ def build_no_provider_basic_workflow(provider_model: str, prose: str) -> dict:
                 "value_1": ["3", 0],
                 "value_2": ["3", 1],
                 "value_3": ["3", 2],
+            },
+        },
+        "5": {
+            "class_type": "BigPlayerPromptDebug",
+            "inputs": {
+                "session": ["2", 0],
+            },
+        },
+        "6": {
+            "class_type": "BigPlayerTestTextPairSink",
+            "inputs": {
+                "value_1": ["5", 0],
+                "value_2": ["5", 1],
             },
         },
     }
@@ -286,11 +312,15 @@ def test_modular_nodes_execute_in_comfyui_with_one_provider_call():
             basic_output = history["outputs"]["9"]
             ksampler_output = history["outputs"]["10"]
             checkpoint_output = history["outputs"]["11"]
+            debug_output = history["outputs"]["13"]
             assert basic_output["value_1"][0] == "cinematic cat portrait, shallow depth of field"
             assert basic_output["value_3"][0].startswith("Used the explicit preset state")
             assert ksampler_output["value_1"][0] == 28
             assert ksampler_output["value_3"][0] == "euler"
             assert checkpoint_output["value_1"][0] == "sdxl-base-1.0.safetensors"
+            assert "System prompt:" in debug_output["value_1"][0]
+            assert "A cinematic portrait of a cat in a film still." in debug_output["value_1"][0]
+            assert '"basic_prompt"' in debug_output["value_2"][0]
 
 
 def test_duplicate_prompt_modules_share_one_provider_call():
@@ -408,9 +438,12 @@ def test_no_provider_executes_locally_without_network():
         )
         positive_history = wait_for_history(port, positive_id)
         positive_output = positive_history["outputs"]["4"]
+        positive_debug = positive_history["outputs"]["6"]
         assert positive_output["value_1"][0] == "bright red apple"
         assert positive_output["value_2"][0] == ""
         assert positive_output["value_3"][0] == "Goes nowhere, does nothing"
+        assert "bright red apple" in positive_debug["value_1"][0]
+        assert '"positive_prompt": "bright red apple"' in positive_debug["value_2"][0]
 
         negative_id = queue_prompt(
             port,
@@ -418,6 +451,9 @@ def test_no_provider_executes_locally_without_network():
         )
         negative_history = wait_for_history(port, negative_id)
         negative_output = negative_history["outputs"]["4"]
+        negative_debug = negative_history["outputs"]["6"]
         assert negative_output["value_1"][0] == ""
         assert negative_output["value_2"][0] == "washed out"
         assert negative_output["value_3"][0] == "Goes nowhere, does nothing"
+        assert "washed out" in negative_debug["value_1"][0]
+        assert '"negative_prompt": "washed out"' in negative_debug["value_2"][0]

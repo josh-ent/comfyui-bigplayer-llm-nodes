@@ -68,7 +68,19 @@ Outputs:
 - `negative_prompt`
 - `comments`
 
-#### 4. BigPlayer Split Prompt
+#### 4. BigPlayer Prompt Debug
+
+Takes:
+- `session`
+
+Outputs:
+- `request_text`
+- `response_text`
+
+This returns raw provider-owned debug strings captured at the provider boundary. It does not rebuild prompts or schemas upstream, and it never echoes API keys.
+If this node is not attached to the root session, no provider debug text is captured or stored.
+
+#### 5. BigPlayer Split Prompt
 
 Takes:
 - `session`
@@ -80,7 +92,7 @@ Outputs:
 - `text_g_negative`
 - `comments`
 
-#### 5. BigPlayer KSampler Config
+#### 6. BigPlayer KSampler Config
 
 Takes:
 - `session`
@@ -93,7 +105,7 @@ Outputs:
 - `denoise`
 - `comments`
 
-#### 6. BigPlayer Checkpoint Picker
+#### 7. BigPlayer Checkpoint Picker
 
 Takes:
 - `session`
@@ -102,7 +114,7 @@ Outputs:
 - `checkpoint_name`
 - `comments`
 
-#### 7. BigPlayer Checkpoint State
+#### 8. BigPlayer Checkpoint State
 
 Takes:
 - `checkpoint_name`
@@ -112,7 +124,7 @@ Takes:
 Outputs:
 - `preset_config`
 
-#### 8. BigPlayer LoRA State
+#### 9. BigPlayer LoRA State
 
 Takes:
 - `lora_syntax`
@@ -123,7 +135,7 @@ Takes:
 Outputs:
 - `preset_config`
 
-#### 9. BigPlayer ControlNet State
+#### 10. BigPlayer ControlNet State
 
 Takes:
 - `controlnets`

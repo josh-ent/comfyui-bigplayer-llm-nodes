@@ -10,7 +10,7 @@ import respx
 from bigplayer.generation.capabilities import BASIC_PROMPT_CAPABILITY
 from bigplayer.errors import MalformedProviderResponseError, ProviderError, UnsupportedOperationError
 from bigplayer.generation.operations import PromptGenerationOperation
-from bigplayer.providers.base import InvocationContext, ProviderConfig
+from bigplayer.providers.base import InvocationContext, ProviderConfig, ProviderDebugRecord
 from bigplayer.providers.xai import XAIProvider
 
 
@@ -104,8 +104,12 @@ def test_xai_provider_posts_streaming_responses_request_and_accepts_json_fallbac
         )
     )
     provider = XAIProvider()
-    payload = provider.invoke(_operation(), _config())
+    debug = ProviderDebugRecord()
+    payload = provider.invoke(_operation(), _config(), InvocationContext(debug_record=debug))
     assert payload == {"basic_prompt": {"positive_prompt": "ok"}}
+    assert "System prompt:" in debug.request_text
+    assert "Response schema (bigplayer_modular_llm_result):" in debug.request_text
+    assert debug.response_text == '{"basic_prompt": {"positive_prompt": "ok"}}'
     sent = route.calls[0].request.read().decode("utf-8")
     assert '"tools":[{"type":"web_search"}]' in sent
     assert '"stream":true' in sent
@@ -129,14 +133,16 @@ def test_xai_provider_accumulates_sse_output_and_reports_status(monkeypatch):
     monkeypatch.setattr(httpx.Client, "stream", lambda self, *args, **kwargs: nullcontext(response))
 
     statuses: list[str] = []
+    debug = ProviderDebugRecord()
     payload = XAIProvider().invoke(
         _operation(),
         _config(),
-        InvocationContext(status_callback=statuses.append),
+        InvocationContext(status_callback=statuses.append, debug_record=debug),
     )
     assert payload == {"basic_prompt": {"positive_prompt": "ok"}}
     assert any("Connecting to xAI" in status for status in statuses)
     assert any("Receiving structured output from xAI" in status for status in statuses)
+    assert debug.response_text == '{"basic_prompt": {"positive_prompt": "ok"}}'
 
 
 def test_xai_provider_prefers_completed_response_object_from_stream(monkeypatch):

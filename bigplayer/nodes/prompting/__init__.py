@@ -3,6 +3,7 @@ from .checkpoint_picker import BigPlayerCheckpointPicker
 from .ksampler_config import BigPlayerKSamplerConfig
 from .llm_provider import BigPlayerLLMProvider
 from .natural_language_root import BigPlayerNaturalLanguageRoot
+from .prompt_debug import BigPlayerPromptDebug
 from .split_prompt import BigPlayerSplitPrompt
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     "BigPlayerKSamplerConfig",
     "BigPlayerLLMProvider",
     "BigPlayerNaturalLanguageRoot",
+    "BigPlayerPromptDebug",
     "BigPlayerSplitPrompt",
 ]

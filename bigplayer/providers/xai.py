@@ -230,6 +230,7 @@ class XAIProvider:
             "Content-Type": "application/json",
         }
         context = context or InvocationContext()
+        context.set_request_text(self.render_request_text(request))
 
         try:
             context.report_status("Connecting to xAI...")
@@ -262,6 +263,7 @@ class XAIProvider:
             raise ProviderError("Failed to call the xAI provider.") from exc
 
         text = self._extract_text(body)
+        context.set_response_text(text)
         try:
             decoded = json.loads(text)
         except json.JSONDecodeError as exc:
@@ -277,6 +279,16 @@ class XAIProvider:
         if kind == OperationKind.PROMPT_GENERATION:
             return self._render_prompt_generation(operation, config)
         raise UnsupportedOperationError(f"xAI provider does not support operation `{kind}`.")
+
+    def render_request_text(self, request: RenderedXAIRequest) -> str:
+        schema_text = json.dumps(request.schema, sort_keys=True, indent=2, ensure_ascii=True)
+        sections = [
+            f"Model:\n{request.model}",
+            f"System prompt:\n{request.system_prompt.strip()}",
+            f"User prompt:\n{request.user_prompt.strip()}",
+            f"Response schema ({request.schema_name}):\n{schema_text}",
+        ]
+        return "\n\n".join(section for section in sections if section.strip())
 
     def _render_prompt_generation(
         self,
