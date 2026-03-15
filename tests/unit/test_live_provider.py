@@ -4,11 +4,11 @@ import os
 
 import pytest
 
-from bigplayer_prompting.generation.capabilities import BASIC_PROMPT_CAPABILITY
-from bigplayer_prompting.generation.operations import PromptGenerationOperation
-from bigplayer_prompting.generation.schemas import validate_result
-from bigplayer_prompting.providers.base import ProviderConfig
-from bigplayer_prompting.providers.xai import XAIProvider
+from bigplayer.generation.capabilities import BASIC_PROMPT_CAPABILITY
+from bigplayer.generation.operations import PromptGenerationOperation
+from bigplayer.generation.schemas import validate_result
+from bigplayer.providers.base import ProviderConfig
+from bigplayer.providers.xai import XAIProvider
 
 
 pytestmark = pytest.mark.live

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from bigplayer_prompting.generation.capabilities import BASIC_PROMPT_CAPABILITY, SPLIT_PROMPT_CAPABILITY
-from bigplayer_prompting.generation.operations import PromptGenerationOperation
-from bigplayer_prompting.providers.base import ProviderConfig
-from bigplayer_prompting.providers.no_provider import NO_PROVIDER_COMMENT, NoProvider
+from bigplayer.generation.capabilities import BASIC_PROMPT_CAPABILITY, SPLIT_PROMPT_CAPABILITY
+from bigplayer.generation.operations import PromptGenerationOperation
+from bigplayer.providers.base import ProviderConfig
+from bigplayer.providers.no_provider import NO_PROVIDER_COMMENT, NoProvider
 
 
 def test_no_provider_positive_routes_to_basic_prompt():

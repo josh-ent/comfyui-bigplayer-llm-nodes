@@ -6,7 +6,7 @@ import sys
 import tempfile
 import textwrap
 
-from bigplayer_prompting.nodes import BigPlayerControlNetState, BigPlayerLoRAState
+from bigplayer.nodes import BigPlayerControlNetState, BigPlayerLoRAState
 
 
 def test_root_loader_supports_comfyui_style_import():

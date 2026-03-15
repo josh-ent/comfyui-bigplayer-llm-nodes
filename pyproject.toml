@@ -47,6 +47,6 @@ markers = [
   "live: tests that hit a real Grok endpoint when explicitly enabled",
 ]
 
-[tool.setuptools]
-packages = ["bigplayer_prompting"]
+[tool.setuptools.packages.find]
+include = ["bigplayer*"]
 

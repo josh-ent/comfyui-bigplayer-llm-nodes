@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from bigplayer_prompting.generation.capabilities import BASIC_PROMPT_CAPABILITY, KSAMPLER_CONFIG_CAPABILITY
-from bigplayer_prompting.errors import MalformedProviderResponseError
-from bigplayer_prompting.generation.schemas import validate_result
+from bigplayer.generation.capabilities import BASIC_PROMPT_CAPABILITY, KSAMPLER_CONFIG_CAPABILITY
+from bigplayer.errors import MalformedProviderResponseError
+from bigplayer.generation.schemas import validate_result
 
 
 def test_validate_composed_result_success():

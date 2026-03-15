@@ -7,11 +7,11 @@ import httpx
 import pytest
 import respx
 
-from bigplayer_prompting.generation.capabilities import BASIC_PROMPT_CAPABILITY
-from bigplayer_prompting.errors import MalformedProviderResponseError, ProviderError, UnsupportedOperationError
-from bigplayer_prompting.generation.operations import PromptGenerationOperation
-from bigplayer_prompting.providers.base import InvocationContext, ProviderConfig
-from bigplayer_prompting.providers.xai import XAIProvider
+from bigplayer.generation.capabilities import BASIC_PROMPT_CAPABILITY
+from bigplayer.errors import MalformedProviderResponseError, ProviderError, UnsupportedOperationError
+from bigplayer.generation.operations import PromptGenerationOperation
+from bigplayer.providers.base import InvocationContext, ProviderConfig
+from bigplayer.providers.xai import XAIProvider
 
 
 def _config(provider_model: str = "grok-4-latest") -> ProviderConfig:

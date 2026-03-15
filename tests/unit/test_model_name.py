@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from bigplayer_prompting.errors import ModelNameExtractionError
-from bigplayer_prompting.state.model_name import extract_model_name
+from bigplayer.errors import ModelNameExtractionError
+from bigplayer.state.model_name import extract_model_name
 
 
 class ModelWithCachedInit:
